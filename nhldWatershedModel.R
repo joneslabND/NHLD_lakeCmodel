@@ -1,70 +1,86 @@
 #### run equilibrium seepageVdrainage model for each lake in Vilas county
 rm(list=ls())
 
-setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14")
+setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
 
 ########## load utility functions
-source("vilasWatershedModelSupporting_5-18-14.R")
+source("nhldWatershedModelSupporting.R")
 require(deSolve)
 
 # load watershed table
-d=read.table("vilasSheds_5-18-14.txt",sep="\t",header=TRUE)
+#d=read.table("vilasSheds_5-18-14.txt",sep="\t",header=TRUE)
 
-W2L=d$shedArea_m2/d$lakeArea_m2
-toFix=which(W2L>100 & d$lakeArea_m2<10000)
-d$shedArea_m2[toFix]=d$lakeArea_m2[toFix]*1.5
+#W2L=d$shedArea_m2/d$lakeArea_m2
+#toFix=which(W2L>100 & d$lakeArea_m2<10000)
+#d$shedArea_m2[toFix]=d$lakeArea_m2[toFix]*1.5
 
 #d=d[!(log10(RTs)<2 & log10(W2L)<0.5),]
 #d=d[RTs>1,]
 
-W2L=d$shedArea_m2/d$lakeArea_m2
+#W2L=d$shedArea_m2/d$lakeArea_m2
 
 
 # load met data
 setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14/metData")
-metD=read.csv("NTLwoodruffairport_daily_metdata.csv",header=TRUE)
+#metD=read.csv("NTLwoodruffairport_daily_metdata.csv",header=TRUE)
 # remove flags and unnecessary data
-metD=metD[,c(1:7,9,11,18,20,24,33:35)]
-metH=read.csv("NTLwoodruffairport_hourly_metdata.csv",header=TRUE)
-metH=metH[,c(1:8,11,16:19)]
+#metD=metD[,c(1:7,9,11,18,20,24,33:35)]
+#metH=read.csv("NTLwoodruffairport_hourly_metdata.csv",header=TRUE)
+#metH=metH[,c(1:8,11,16:19)]
+
+setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/VICforcings&output/PROC")
+
+cells=gsub("FLUX_","",grep("FLUX",list.files(),value=TRUE))
+
+forceFiles=grep("FORCE",list.files(),value=TRUE)
+fluxFiles=grep("FLUX",list.files(),value=TRUE)
+
+#### UNDERC includes four VIC cells
+# 46.28125_-89.53125
+# 46.28125_-89.46875
+# 46.21875_-89.53125
+# 46.21875_-89.46875
+UNDERCcells=cells[c(169,170,182,183)]
+
+# Lat Long Year Month Day Runoff_mmDay Precip_mmDay EvapOpenWater_mmDay
+flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)
+# Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction
+force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)
+
+curForce=force[force[,3]==2012,]
+curForce=curForce[curForce[,4]%in%(5:9),]
+curFlux=flux[flux[,3]==2012,]
+curFlux=curFlux[curFlux[,4]%in%(5:9),]
+
+curFluxDOY=as.numeric(strftime(strptime(paste(curFlux[,4],curFlux[,5],curFlux[,3],sep="-"),format="%m-%d-%Y"),format="%j"))
+curForceDOY=as.numeric(strftime(strptime(paste(curForce[,4],curForce[,5],curForce[,3],sep="-"),format="%m-%d-%Y"),format="%j"))
+
+startDOY=min(curFluxDOY)
+
+
+
+setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
+
 
 # run continuously with mean open water season numbers and sum across that range for annual; assumes in winter lake is "shut off"; go with April 15 (day 89) to Dec 1 (335); 248 days
 seasonLength=248	#days
 
-# annual precip
-annP=tapply(metD[,5],metD[,1],sum,na.rm=TRUE)
-summary(annP)
-annP[names(annP)==2000]
-
-openwaterD=metD[(metD$daynum>88 & metD$daynum<335),]
-summary(tapply(openwaterD[,5],openwaterD[,1],sum,na.rm=TRUE)/seasonLength)
-
-#dailyP=median(tapply(openwaterD[,5],openwaterD[,1],sum,na.rm=TRUE)[-23])/seasonLength	# mm day-1
-# 2011 has issues
-dailyP=800/seasonLength
-
+# daily precip
+dailyP=curFlux[,7]
 
 # evaporation
-allEvaps=evapCalc(openwaterD$avg_air_temp,openwaterD$daynum,lat=46.05)
-dailyEvap=mean(allEvaps,na.rm=TRUE)
+dailyEvap=curFlux[,8]
 
 # PAR
-openwaterH=metH[(metH$daynum>88 & metH$daynum<335),]
+# ????????? openwaterH=metH[(metH$daynum>88 & metH$daynum<335),]
 hourlyPAR=tapply(openwaterH$avg_par,openwaterH$hour,mean,na.rm=TRUE)
 
-#plot(as.numeric(names(hourlyPAR))/100,hourlyPAR)
+dailySun=sw.to.par.base(curForce[curForceDOY==(startDOY+i-1),10])		# umol m2 sec; SW to PAR based on Read...
+
 
 # peak wind speed for tPOC deposition
-maxWind=median(openwaterD$peak_wind_speed_5sec,na.rm=TRUE)	#NOTE this ends up being above range presented in Preston 2008???
+daily_maxWind=max(curForce[curForceDOY==(startDOY+i-1),13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition
 
-# calculate ET from landcover --> from year 2000...
-setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14")
-et=read.table("mckayETestimates.txt",header=TRUE,sep="\t",skip=1)
-etUp=median(c(et[,2],et[,3],et[,4],et[,5],et[,6],et[,7]))+median(et[,10])	#mm day-1
-etLow=median(c(et[,8],et[,9]))+median(et[,11])	#mm day-1
-
-shedETs=etUp*d$forest+etLow*d$wetland
-range(shedETs)	#mm day-1
 
 # calculate concentrations of DIC, DOC, TP based on landcover
 setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14/waterConstituents")
