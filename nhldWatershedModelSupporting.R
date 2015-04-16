@@ -1,0 +1,154 @@
+#vilasWatershedModel_5-17-14.R supportin functions
+
+#light attenuation
+lightAtten<-function(z,I0,kD){
+	Iz=I0*exp(-kD*z)
+	return(Iz)
+}
+lightAttenTS<-function(I0,kD,zmix){
+	avgI=numeric(length(I0))
+	for(i in 1:length(avgI)){
+		avgI[i]=integrate(lightAtten,0,zmix,I0=I0[i],kD=kD)$value/zmix
+	}
+	return(avgI)
+}
+
+# evap
+evapCalc<-function(airT,jDay,lat){
+	#saturated Vapor Density 
+	svd<-5.018+(.32321*airT)+(0.0081847*airT^2)+(0.00031243*airT^3) 
+
+	#Daylength 
+	degToRad<-2*pi/360
+	radToDeg<-180/pi
+
+	#day angle gamma (radians) 
+	dayAngle<-2*pi*(jDay-1)/365 
+
+	#declination of the sun 'delta' (radians)
+	dec<-0.006918-0.399912*cos(dayAngle)+0.070257*sin(dayAngle)-
+  	0.006758*cos(2*dayAngle)+0.000907*sin(2*dayAngle)-0.002697*
+  	cos(3*dayAngle)+0.00148*sin(3*dayAngle)
+
+	# sunrise hour angle 'omega' (degrees) 
+	latRad<-lat*degToRad
+	sunriseHourAngle<-acos(-tan(latRad)*tan(dec))*radToDeg 
+
+	#sunrise and sunset times (decimal hours, relative to solar time) 
+	sunrise<-12-sunriseHourAngle/15
+	sunset<-12+sunriseHourAngle/15
+	dayLength<-sunset-sunrise #day length in hours
+
+	evap = 0.55*((dayLength/12)^2)*(svd/100)*25.4 #calculates evaporation for each jDay (units are mm/day)
+	return(evap)
+}
+
+# atmospheric deposition
+depWithDist<-function(distShore,precip,maxWind){
+	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1
+	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1
+	
+	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1
+}
+
+
+# lake process model
+timeStep<-function(t,X,params){
+	with(as.list(params),{
+		
+		#########################
+		#### State variables ####
+		#########################
+		DOC=X[1]
+		DIC=X[2]
+		tPOC=X[3]
+		Phyto=X[4]
+		SRP=X[5]
+		Buried=X[6]
+
+# In lake processes
+Ik=180 		# light limitation benchmark for GPP, [umol cm-2 s-1]; Vadeboncoeur et al. 2008
+#photoOx=44/1000/12#0.0042 	# photooxidation rate constant, [mol c m-2 day-1]; Graneli et al. 1996, L&O, 41: 698-706
+photoOx=0
+exude=0.03		# fraction of GPP released as DOC, [day-1]; Biddanda & Benner 1997 via Hanson et al. 2004
+leafLeach=0.12/14	# fraction of leaf load released as DOC, [day-1]; France et al. 1997; saw 6-18% loss over two weeks  do this on an annual leaf load * leach rate OR make this seasonal; this also has to be input to sediment/hypo OM
+floc=0.005		# fraction of DOC that floculates, [day-1]; von Wachenfeldt & Tranvik 2008 via Jones et al. 2012
+GPPrespired=0.8	# fraction of GPP that is respired quickly, [day-1]; Quay et al. 1996, Cole et al. 2002 via Hanson et al. 2004
+DOCrespired=0.005 # fraction of DOC that is respired, [day-1]; Houser et al. 2001 via Hanson et al. 2004
+phyto_C2P=106		# phytoplankton carbon to posphorus molar ratio, [molC molP-1]; redfield
+phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g. Wang et al. 2008 Biogeoscience Discussions, 5: 3869-3903; Riemann et al. 1989. JPR, 11: 1037-1045)
+
+refPOM=2.5 # reference POM concentration to adjust sedimentation rate, [mol C m-3]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147
+vDef=72/365 # default sedimentation rate, [m d-1]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147
+
+V=curLakeVol-hypoVolume
+
+zmix=10^(-0.518*log10(DOC/(V*1000)*12*1000)+1.006)		#fuentetaja et al. 1999
+
+#print(DOC/V*12)
+
+if(zmix>curMeanDepth){
+	zmix=curMeanDepth
+}
+
+hypoVolume<<-curLakeArea*(curMeanDepth-zmix)	# m3
+
+#print(c(zmix,hypoVolume))
+
+autoSEDrespired=0.8	# sediment respiration rate for autochthonous carbon [day-1]; mean from Sobek et al. 2009 L&O, 54: 2243-2254 --> determines TP recycling with C2P???
+alloSEDrespired=0.3  # sediment respiration rate for allochthonous carbon [day-1]; mean from Sobek et al. 2009 L&O, 54: 2243-2254 --> determines TP recycling with C2P???
+
+atmCO2=400 # [ppm]
+
+
+#### trying different GPP formulation
+PPmax=15#2.2		# day-1
+kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)
+
+		################################
+		#### Intermediate equations ####
+		################################
+		kH=29.41	# Henry's Law constant for CO2 in water [L atm mol-1]	# temperature sensitivity
+		atmEquilCO2=1*atmCO2/1e6/kH*1000	# concentration of CO2 in water at equilibrium with atmosphere, [mol C m-3]
+	
+		#mass basis:
+		Yconc=1+0.75*((tPOC/V+Phyto/V)/refPOM-1)	# adjustment to sedimentation rate for POM concentration, assuming tPOC and Phyto interact similarly when aggregating [unitless]
+		sedRate=(vDef/zmix)*Ydr*Yconc # sedimentation rate [d-1]
+		chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
+		kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
+				
+		avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
+		GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
+		NPP=GPP*(1-GPPrespired-exude)			# mol C m-3 day-1
+		#R=GPP*GPPrespired+DOC/V*DOCrespired		# mol C m-3 day-1
+		R=GPP*GPPrespired+DOC/V*DOCrespired	# mol C m-3 day-1
+
+
+		kCur=0.5 	# current piston velocity, using Jordan Read/GLEON model eventually
+		# should be function of area...
+		
+		#print(V)
+
+		################################
+		#### Differential equations ####
+		################################
+
+		dDOC.dt=DOCin+GPP*exude*V-photoOx*LA-floc*DOC-DOCrespired*DOC-(STout+GWout)/V*DOC	#[mol C]
+		
+		dDIC.dt=DICin+R*V+photoOx*LA-GPP*V-(STout+GWout)/V*DIC+kCur*(atmEquilCO2-DIC/V)*LA	#[mol C]
+
+		dtPOC.dt=POCin+tPOCdepTotal+floc*DOC-sedRate*tPOC-STout/V*tPOC	#[mol C]
+
+		dPhyto.dt=NPP*V-sedRate*Phyto-STout/V*Phyto	#[mol C]
+
+		# lacking any recycling in epi...
+		dSRP.dt=Pin-NPP*V/phyto_C2P-(STout+GWout)/V*SRP	# [mol P]
+
+		dBuried.dt=sedRate*tPOC*(1-alloSEDrespired)+sedRate*Phyto*(1-autoSEDrespired)	#[mol C]
+	
+		
+		list(c(dDOC.dt,dDIC.dt,dtPOC.dt,dPhyto.dt,dSRP.dt,dBuried.dt),c(zmix=zmix,V=V))
+
+	})
+
+}
