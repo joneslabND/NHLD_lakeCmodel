@@ -11,15 +11,7 @@ timeStep<-function(t,X,params){
 				
 		streamQ=dailyRunoff(t)*curShedArea/1000			#m3 day-1	****** problem because of interpolating?
 		directPrecip=dailyPrecip(t)*curLakeArea/1000		#m3 day-1	****** problem because of interpolating?
-	
-		if(gwQ>0){
-			gwIn=gwQ
-			gwOut=0
-		}else{
-			gwIn=0
-			gwOut=abs(gwQ)
-		}
-		
+			
 		curEvap=dailyEvap(t)*curLakeArea/1000			#m3 day-1	****** problem because of interpolating?
 		
 		# assuming ogee crest spillway

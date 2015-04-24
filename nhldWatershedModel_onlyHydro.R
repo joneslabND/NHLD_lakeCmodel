@@ -75,34 +75,41 @@ dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")
 
 UNDERCsheds=read.table("../NHLDwatershedDelineations/UNDERCsheds_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
 
-GFLOWoutput=read.table("../gflowOutput_3-24-15/UNDERC_DATA_Stuart_20150324_recharge_34cm_peryr_short_ALL.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
-
-###### need to use all GFLOW line sink data to get GWin (sum of positive line sinks) and GWout (sum of negative line sinks) to capture flow through of GW
-
+GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
 
 # iterate through lakes  --> perhaps in future run all lakes at once????
 #for i in 1:nrow(d){
 	i=17		#Long Lake from UNDERCsheds
 	i=4		#Morris from UNDERCsheds
+	
+	curLakeID=UNDERCsheds$Permanent_[i]
+	
 	# current lake and shed parameters
 	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2
 	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3
+	curLakePerim=UNDERCsheds$Perimeter[i]
 	##### when don't have volume infer from area...
 	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units
 	curShedArea=UNDERCsheds$Area_m2[i]	#m2
-	# for GFLOW output 
-	j=1 # Long Lake
-	j=13	# Morris
-	gwQ=GFLOWoutput$Lake_NetDischarge[j]*0.0283168				# m3 d-1 from GFLOW
-	##******** this corresponds to 62 mm d-1; we think this is more like 1 mm d-1	
-	#### for now just divide GW by 60 to make some progress...
-	gwQ=gwQ/60
+	
+	
+	#gwIn and gwOut
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]
+	GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)
+	GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1
+	gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1
+	gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1
+		
+	#### these seem too high; for now just divide GW by 60 to make some progress...
+	gwIn=gwIn/60
+	gwOut=gwOut/60
 	
 	stage0=V0/curLakeArea
 	alpha=0.99
 	stageOut=alpha*stage0
 
-	params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,gwQ=gwQ,stageOut=stageOut)
+	params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)
 
 	initialX=c(V=V0)
 	
@@ -116,15 +123,6 @@ GFLOWoutput=read.table("../gflowOutput_3-24-15/UNDERC_DATA_Stuart_20150324_recha
 	H=stageSim-stageOut
 	QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)
 	
-	if(gwQ>0){
-		gwIn=gwQ
-		gwOut=0
-	}else{
-		gwIn=0
-		gwOut=abs(gwQ)
-	}
-
-
 	hydroSumm=cbind(times,dailyRunoff(times)*curShedArea/1000,dailyPrecip(times)*curLakeArea/1000,rep(gwIn,length(times)),QoutSim,dailyEvap(times)*curLakeArea/1000,rep(gwOut,length(times)))
 	colnames(hydroSumm)=c("time","Qin","precip","GWin","Qout","evap","GWout")
 
