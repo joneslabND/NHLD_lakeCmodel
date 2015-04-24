@@ -13,48 +13,52 @@ lightAttenTS<-function(I0,kD,zmix){
 	return(avgI)
 }
 
-# evap
-evapCalc<-function(airT,jDay,lat){
-	#saturated Vapor Density 
-	svd<-5.018+(.32321*airT)+(0.0081847*airT^2)+(0.00031243*airT^3) 
-
-	#Daylength 
-	degToRad<-2*pi/360
-	radToDeg<-180/pi
-
-	#day angle gamma (radians) 
-	dayAngle<-2*pi*(jDay-1)/365 
-
-	#declination of the sun 'delta' (radians)
-	dec<-0.006918-0.399912*cos(dayAngle)+0.070257*sin(dayAngle)-
-  	0.006758*cos(2*dayAngle)+0.000907*sin(2*dayAngle)-0.002697*
-  	cos(3*dayAngle)+0.00148*sin(3*dayAngle)
-
-	# sunrise hour angle 'omega' (degrees) 
-	latRad<-lat*degToRad
-	sunriseHourAngle<-acos(-tan(latRad)*tan(dec))*radToDeg 
-
-	#sunrise and sunset times (decimal hours, relative to solar time) 
-	sunrise<-12-sunriseHourAngle/15
-	sunset<-12+sunriseHourAngle/15
-	dayLength<-sunset-sunrise #day length in hours
-
-	evap = 0.55*((dayLength/12)^2)*(svd/100)*25.4 #calculates evaporation for each jDay (units are mm/day)
-	return(evap)
-}
-
 # atmospheric deposition
 depWithDist<-function(distShore,precip,maxWind){
 	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1
 	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1
 	
 	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1
+	return(tPOCdep)
+}
+
+# daily tPOC deposition based on Preston et al.
+dailyTPOCdep<-function(day,curLakeArea,curForce,curForceDOY){
+	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition
+
+	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(day),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1
+	return(tPOCdepTotal)
+}
+
+# dailyGPP based on hourly light, etc.
+dailyGPP<-function(day,curForce,curForceDOY,Phyto,SRP,DOC,V,zmix){
+	hourlyPAR=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...
+
+	#### trying different GPP formulation
+	PPmax=15#2.2		# day-1
+	kSRP=0.55#0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)
+	Ik=180 		# light limitation benchmark for GPP, [umol cm-2 s-1]; Vadeboncoeur et al. 2008
+	phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g. 
+
+	chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
+	kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
+				
+	avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
+	GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
+	
+	return(GPP)
 }
 
 
+
+
+
+
 # lake process model
-timeStep<-function(t,X,params){
+timeStep<-function(t,X,params,curForce,curForceDOY){
 	with(as.list(params),{
+		
+		print(t)
 		
 		#########################
 		#### State variables ####
@@ -65,9 +69,39 @@ timeStep<-function(t,X,params){
 		Phyto=X[4]
 		SRP=X[5]
 		Buried=X[6]
+		
+		streamQ=dailyRunoff(t)*curShedArea/1000			#m3 day-1	****** problem because of interpolating?
+		directPrecip=dailyPrecip(t)*curLakeArea/1000		#m3 day-1	****** problem because of interpolating?
+	
+		if(gwQ>0){
+			gwIn=gwQ
+			gwOut=0
+		}else{
+			gwIn=0
+			gwOut=abs(gwQ)
+		}
+		
+		curEvap=dailyEvap(t)*curLakeArea/1000			#m3 day-1	****** problem because of interpolating?
+		
+		STout=(directPrecip+streamQ+gwIn)-(curEvap+gwOut)	#m3 day-1;  currently holds volume constant...
+
+		# daily loads of DIC, DOC, TP
+		DICin=directPrecip*precipDIC+streamQ*streamDICs+gwQ*gwDICs
+		DOCin=directPrecip*precipDOC+streamQ*cur_streamDOC+gwQ*gwDOCs
+		Pin=directPrecip*precipP+streamQ*streamPs+gwQ*gwPs
+	
+		#maxWind=dailyMaxWind(floor(t))
+		
+		#hourlyPAR=dailySun(floor(t))
+	
+		#tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(t),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1
+		
+		tPOCdepTotal=dailyTPOCdep(floor(t),curLakeArea,curForce,curForceDOY)
+		POCin=tPOCdepTotal+streamQ*streamPOCs
+
 
 # In lake processes
-Ik=180 		# light limitation benchmark for GPP, [umol cm-2 s-1]; Vadeboncoeur et al. 2008
+#Ik=180 		# light limitation benchmark for GPP, [umol cm-2 s-1]; Vadeboncoeur et al. 2008
 #photoOx=44/1000/12#0.0042 	# photooxidation rate constant, [mol c m-2 day-1]; Graneli et al. 1996, L&O, 41: 698-706
 photoOx=0
 exude=0.03		# fraction of GPP released as DOC, [day-1]; Biddanda & Benner 1997 via Hanson et al. 2004
@@ -76,7 +110,7 @@ floc=0.005		# fraction of DOC that floculates, [day-1]; von Wachenfeldt & Tranvi
 GPPrespired=0.8	# fraction of GPP that is respired quickly, [day-1]; Quay et al. 1996, Cole et al. 2002 via Hanson et al. 2004
 DOCrespired=0.005 # fraction of DOC that is respired, [day-1]; Houser et al. 2001 via Hanson et al. 2004
 phyto_C2P=106		# phytoplankton carbon to posphorus molar ratio, [molC molP-1]; redfield
-phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g. Wang et al. 2008 Biogeoscience Discussions, 5: 3869-3903; Riemann et al. 1989. JPR, 11: 1037-1045)
+#phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g. Wang et al. 2008 Biogeoscience Discussions, 5: 3869-3903; Riemann et al. 1989. JPR, 11: 1037-1045)
 
 refPOM=2.5 # reference POM concentration to adjust sedimentation rate, [mol C m-3]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147
 vDef=72/365 # default sedimentation rate, [m d-1]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147
@@ -114,11 +148,12 @@ kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kin
 		#mass basis:
 		Yconc=1+0.75*((tPOC/V+Phyto/V)/refPOM-1)	# adjustment to sedimentation rate for POM concentration, assuming tPOC and Phyto interact similarly when aggregating [unitless]
 		sedRate=(vDef/zmix)*Ydr*Yconc # sedimentation rate [d-1]
-		chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
-		kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
+		#chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
+		#kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
 				
-		avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
-		GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
+		#avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
+		#GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
+		GPP=dailyGPP(floor(t),curForce,curForceDOY,Phyto,SRP,DOC,V,zmix)
 		NPP=GPP*(1-GPPrespired-exude)			# mol C m-3 day-1
 		#R=GPP*GPPrespired+DOC/V*DOCrespired		# mol C m-3 day-1
 		R=GPP*GPPrespired+DOC/V*DOCrespired	# mol C m-3 day-1
@@ -133,22 +168,22 @@ kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kin
 		#### Differential equations ####
 		################################
 
-		dDOC.dt=DOCin+GPP*exude*V-photoOx*LA-floc*DOC-DOCrespired*DOC-(STout+GWout)/V*DOC	#[mol C]
+		dDOC.dt=DOCin+GPP*exude*V-photoOx*curLakeArea-floc*DOC-DOCrespired*DOC-(STout+gwOut)/V*DOC	#[mol C]
 		
-		dDIC.dt=DICin+R*V+photoOx*LA-GPP*V-(STout+GWout)/V*DIC+kCur*(atmEquilCO2-DIC/V)*LA	#[mol C]
+		dDIC.dt=DICin+R*V+photoOx*curLakeArea-GPP*V-(STout+gwOut)/V*DIC+kCur*(atmEquilCO2-DIC/V)*curLakeArea	#[mol C]
 
 		dtPOC.dt=POCin+tPOCdepTotal+floc*DOC-sedRate*tPOC-STout/V*tPOC	#[mol C]
 
 		dPhyto.dt=NPP*V-sedRate*Phyto-STout/V*Phyto	#[mol C]
 
 		# lacking any recycling in epi...
-		dSRP.dt=Pin-NPP*V/phyto_C2P-(STout+GWout)/V*SRP	# [mol P]
+		dSRP.dt=Pin-NPP*V/phyto_C2P-(STout+gwOut)/V*SRP	# [mol P]
 
 		dBuried.dt=sedRate*tPOC*(1-alloSEDrespired)+sedRate*Phyto*(1-autoSEDrespired)	#[mol C]
 	
 		
 		list(c(dDOC.dt,dDIC.dt,dtPOC.dt,dPhyto.dt,dSRP.dt,dBuried.dt),c(zmix=zmix,V=V))
-
+		#list(c(DOC+dDOC.dt,DIC+dDIC.dt,tPOC+dtPOC.dt,Phyto+dPhyto.dt,SRP+dSRP.dt,Buried+dBuried.dt),c(zmix=zmix,V=V))
 	})
 
 }
