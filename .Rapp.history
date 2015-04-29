@@ -1,3 +1,497 @@
+library(glmtools)
+quit()
+library(Rgtk2)
+library(RGtk2)
+remove.packages(RGtk2)
+remove.packages('RGtk2')
+library("RGtk2")
+remove.packages('RGtk2')
+(1.6-1)/1
+(1.6543-1.0423)/1.0423
+15*40*50
+15*40*25
+15*40*25*1.48
+x=seq(1,200)
+1/0.69
+1/.13
+15872*(55000/(9728+55000))
+15872*(55000/(9728+55000))+55000
+(10250+388)/68486.59
+(10250+388)/68486.59*12
+10250+388
+10250+388*6
+10638*6
+10250+388
+10638*2
+15872*(55000/(55000+9728))
+13486.59+55000
+21276/68486.59
+1864.39+357.76
+p=1250		# Area of profundal sediments; [m2]#
+Al=250		# Area of littoral sediments; [m2]#
+Ae=Ap+Al		# Surface area of lake; [m2]#
+activeLayerDepth=0.2	# Active layer depth of sediments; [m]#
+Vp=Ap*activeLayerDepth		# Volume of "active" profundal sediments; [m3]#
+Vl=Al*activeLayerDepth		# Volume of "active" littoral sediments; [m3]#
+zmix=2	# Mixed layer depth of lake; [m]#
+Ve=Ae*zmix		# Volume of epilimnion; [m3]#
+sed=0.3		# Proportion of areal GPP that settles to sediments; []#
+yield=0.25	# Molar yield of CH4 from algal C; [mol CH4 (mol algal C)-1]#
+Pdiff=0.001	# Mass transfer coefficient/diffusivity???; [m d-1]#
+Ldiff=0.005	# Mass transfer coefficient/diffusivity???; [m d-1]#
+ebull=0.1		# Fraction of production released as ebullition [d-1] -> could be a more complex function that causes ebullition at a critical saturating concentration; could also be probabalistic#
+Eprod=0.0001	# Epilimnetic CH4 production per unit GPP; [mol CH4 (mol C)-1]#
+k=0.4	# Piston velocity; [m d-1]#
+oxE=0.9	# Fraction of epilimnion CH4 lost to oxidation; [d-1]#
+params=c(Vp=Vp,Vl=Vl,Ve=Ve,Ap=Ap,Al=Al,Ae=Ae,zmix=zmix,sed=sed,yield=yield,Pdiff=Pdiff,Ldiff=Ldiff,ebull=ebull,Eprod=Eprod,k,oxE)
+Ap=1250		# Area of profundal sediments; [m2]#
+Al=250		# Area of littoral sediments; [m2]#
+Ae=Ap+Al		# Surface area of lake; [m2]#
+activeLayerDepth=0.2	# Active layer depth of sediments; [m]#
+Vp=Ap*activeLayerDepth		# Volume of "active" profundal sediments; [m3]#
+Vl=Al*activeLayerDepth		# Volume of "active" littoral sediments; [m3]#
+zmix=2	# Mixed layer depth of lake; [m]#
+Ve=Ae*zmix		# Volume of epilimnion; [m3]#
+sed=0.3		# Proportion of areal GPP that settles to sediments; []#
+yield=0.25	# Molar yield of CH4 from algal C; [mol CH4 (mol algal C)-1]#
+Pdiff=0.001	# Mass transfer coefficient/diffusivity???; [m d-1]#
+Ldiff=0.005	# Mass transfer coefficient/diffusivity???; [m d-1]#
+ebull=0.1		# Fraction of production released as ebullition [d-1] -> could be a more complex function that causes ebullition at a critical saturating concentration; could also be probabalistic#
+Eprod=0.0001	# Epilimnetic CH4 production per unit GPP; [mol CH4 (mol C)-1]#
+k=0.4	# Piston velocity; [m d-1]#
+oxE=0.9	# Fraction of epilimnion CH4 lost to oxidation; [d-1]#
+params=c(Vp=Vp,Vl=Vl,Ve=Ve,Ap=Ap,Al=Al,Ae=Ae,zmix=zmix,sed=sed,yield=yield,Pdiff=Pdiff,Ldiff=Ldiff,ebull=ebull,Eprod=Eprod,k,oxE)
+Vp
+Ve
+Ve*0.2
+##### Simplest CH4 ecosystem model#
+##### 11-5-14#
+##### WEW & SEJ#
+#
+rm(list=ls())#
+#
+library(deSolve)#
+#
+# set up ordinary differential equations (ODEs) in function for deSolve to use for each time step#
+#
+# State variables:#
+#		1. CH4 in profundal sediment#
+#		2. CH4 in littoral sediment#
+#		3. CH4 in epilimnion#
+#
+# Daily time step#
+#
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params){#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+	})#
+}#
+#
+# Parameters#
+Ap=1250		# Area of profundal sediments; [m2]#
+Al=250		# Area of littoral sediments; [m2]#
+Ae=Ap+Al		# Surface area of lake; [m2]#
+activeLayerDepth=0.2	# Active layer depth of sediments; [m]#
+Vp=Ap*activeLayerDepth		# Volume of "active" profundal sediments; [m3]#
+Vl=Al*activeLayerDepth		# Volume of "active" littoral sediments; [m3]#
+zmix=2	# Mixed layer depth of lake; [m]#
+Ve=Ae*zmix		# Volume of epilimnion; [m3]#
+sed=0.3		# Proportion of areal GPP that settles to sediments; []#
+yield=0.25	# Molar yield of CH4 from algal C; [mol CH4 (mol algal C)-1]#
+Pdiff=0.001	# Mass transfer coefficient/diffusivity???; [m d-1]#
+Ldiff=0.005	# Mass transfer coefficient/diffusivity???; [m d-1]#
+ebull=0.1		# Fraction of production released as ebullition [d-1] -> could be a more complex function that causes ebullition at a critical saturating concentration; could also be probabalistic#
+Eprod=0.0001	# Epilimnetic CH4 production per unit GPP; [mol CH4 (mol C)-1]#
+k=0.4	# Piston velocity; [m d-1]#
+oxE=0.9	# Fraction of epilimnion CH4 lost to oxidation; [d-1]#
+params=c(Vp=Vp,Vl=Vl,Ve=Ve,Ap=Ap,Al=Al,Ae=Ae,zmix=zmix,sed=sed,yield=yield,Pdiff=Pdiff,Ldiff=Ldiff,ebull=ebull,Eprod=Eprod,k,oxE)#
+#
+init=c(0.2*Vp,0.2*Vl,0.2*Ve)		#starting all the same (sort of like after mixis); 200 uM#
+t.s=1:180#
+#
+GPP=0.1		# [mol C m-3 d-1]Jake says this is average for morris
+out=ode(y=init,times=t.s,func=timeStepCH4,parms=params)
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params){#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+	)}#
+}
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params){#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+	})#
+}
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params),{#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+	})#
+}
+rm(list=ls())#
+#
+library(deSolve)#
+#
+# set up ordinary differential equations (ODEs) in function for deSolve to use for each time step#
+#
+# State variables:#
+#		1. CH4 in profundal sediment#
+#		2. CH4 in littoral sediment#
+#		3. CH4 in epilimnion#
+#
+# Daily time step#
+#
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params),{#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+	})#
+}
+Ap=1250		# Area of profundal sediments; [m2]#
+Al=250		# Area of littoral sediments; [m2]#
+Ae=Ap+Al		# Surface area of lake; [m2]#
+activeLayerDepth=0.2	# Active layer depth of sediments; [m]#
+Vp=Ap*activeLayerDepth		# Volume of "active" profundal sediments; [m3]#
+Vl=Al*activeLayerDepth		# Volume of "active" littoral sediments; [m3]#
+zmix=2	# Mixed layer depth of lake; [m]#
+Ve=Ae*zmix		# Volume of epilimnion; [m3]#
+sed=0.3		# Proportion of areal GPP that settles to sediments; []#
+yield=0.25	# Molar yield of CH4 from algal C; [mol CH4 (mol algal C)-1]#
+Pdiff=0.001	# Mass transfer coefficient/diffusivity???; [m d-1]#
+Ldiff=0.005	# Mass transfer coefficient/diffusivity???; [m d-1]#
+ebull=0.1		# Fraction of production released as ebullition [d-1] -> could be a more complex function that causes ebullition at a critical saturating concentration; could also be probabalistic#
+Eprod=0.0001	# Epilimnetic CH4 production per unit GPP; [mol CH4 (mol C)-1]#
+k=0.4	# Piston velocity; [m d-1]#
+oxE=0.9	# Fraction of epilimnion CH4 lost to oxidation; [d-1]#
+params=c(Vp=Vp,Vl=Vl,Ve=Ve,Ap=Ap,Al=Al,Ae=Ae,zmix=zmix,sed=sed,yield=yield,Pdiff=Pdiff,Ldiff=Ldiff,ebull=ebull,Eprod=Eprod,k,oxE)#
+#
+init=c(0.2*Vp,0.2*Vl,0.2*Ve)		#starting all the same (sort of like after mixis); 200 uM#
+t.s=1:180#
+#
+GPP=0.1		# [mol C m-3 d-1]Jake says this is average for morris
+out=ode(y=init,times=t.s,func=timeSt,parms=params)
+out=ode(y=init,times=t.s,func=timeStepCH4,parms=params)
+GPP=0.1		# [mol C m-3 d-1]Jake says this is average for morris #
+atmCH4=0.1	# [mol CH4 m-3]
+GPP=0.1		# [mol C m-3 d-1]Jake says this is average for morris --> Stuart will remember how to do this dynamically#
+atmCH4=0.1	# [mol CH4 m-3]Will thinks this is about right --> We can check this and use whatever the global average is
+out=ode(y=init,times=t.s,func=timeStepCH4,parms=params)
+dPdt=5
+dLdt=2
+dEdt=1
+list(dPdt,dLdt,dEdt)
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params),{#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+		return(list(dP.dt,dL.dt,dE.dt))#
+	})#
+}
+# Parameters#
+Ap=1250		# Area of profundal sediments; [m2]#
+Al=250		# Area of littoral sediments; [m2]#
+Ae=Ap+Al		# Surface area of lake; [m2]#
+activeLayerDepth=0.2	# Active layer depth of sediments; [m]#
+Vp=Ap*activeLayerDepth		# Volume of "active" profundal sediments; [m3]#
+Vl=Al*activeLayerDepth		# Volume of "active" littoral sediments; [m3]#
+zmix=2	# Mixed layer depth of lake; [m]#
+Ve=Ae*zmix		# Volume of epilimnion; [m3]#
+sed=0.3		# Proportion of areal GPP that settles to sediments; []#
+yield=0.25	# Molar yield of CH4 from algal C; [mol CH4 (mol algal C)-1]#
+Pdiff=0.001	# Mass transfer coefficient/diffusivity???; [m d-1]#
+Ldiff=0.005	# Mass transfer coefficient/diffusivity???; [m d-1]#
+ebull=0.1		# Fraction of production released as ebullition [d-1] -> could be a more complex function that causes ebullition at a critical saturating concentration; could also be probabalistic#
+Eprod=0.0001	# Epilimnetic CH4 production per unit GPP; [mol CH4 (mol C)-1]#
+k=0.4	# Piston velocity; [m d-1]#
+oxE=0.9	# Fraction of epilimnion CH4 lost to oxidation; [d-1]#
+params=c(Vp=Vp,Vl=Vl,Ve=Ve,Ap=Ap,Al=Al,Ae=Ae,zmix=zmix,sed=sed,yield=yield,Pdiff=Pdiff,Ldiff=Ldiff,ebull=ebull,Eprod=Eprod,k,oxE)#
+#
+init=c(0.2*Vp,0.2*Vl,0.2*Ve)		#starting all the same (sort of like after mixis); 200 uM#
+t.s=1:180#
+#
+GPP=0.1		# [mol C m-3 d-1]Jake says this is average for morris --> Stuart will remember how to do this dynamically#
+atmCH4=0.1	# [mol CH4 m-3]Will thinks this is about right --> We can check this and use whatever the global average is
+out=ode(y=init,times=t.s,func=timeStepCH4,parms=params)
+init=c(0.2*Vp,0.2*Vl,0.2*Ve)
+length(init)
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params),{#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+		return(as.list(c(dP.dt,dL.dt,dE.dt)))#
+	})#
+}
+out=ode(y=init,times=t.s,func=timeStepCH4,parms=params)
+timeStepCH4<-function(times,y,params){#
+	with(as.list(params),{#
+		P=y[1]	# CH4 in profundal sediment#
+		L=y[2]	# CH4 in littoral sediment#
+		E=y[3]	# CH4 in epilimnion#
+		#dPdt=production-diffusion; assuming no ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(???)#
+		dP.dt=Ap*(GPP*zmix*sed*yield-Pdiff*(P/Vp-E/Ve))#
+		#dLdt=production-diffusion-ebullition#
+		#		production=f(GPP,settling,yield)#
+		#		diffusion=f(E,L,???)#
+		#		ebullition=f(L,???)#
+		dL.dt=Al*(GPP*zmix*sed*yield-Ldiff*(L/Vl-E/Ve))-ebull*L#
+		#dEdt=production+diffusion (littoral and profundal)-atm. diffusion-oxidation#
+		#		production=f(GPP)????#
+		#		diffusion=f(E,L,P,???)#
+		#		atm. diffusion=f(E,atm)#
+		#		oxidation=f(E)#
+		dE.dt=GPP*Eprod*Ve+Pdiff*(P/Vp-E/Ve)*Ap+Ldiff*(L/Vl-E/Ve)*Al-k*(E/Ve-atmCH4)*Ae-oxE*E#
+		list(c(dP.dt,dL.dt,dE.dt))#
+	})#
+}
+Ap=1250		# Area of profundal sediments; [m2]#
+Al=250		# Area of littoral sediments; [m2]#
+Ae=Ap+Al		# Surface area of lake; [m2]#
+activeLayerDepth=0.2	# Active layer depth of sediments; [m]#
+Vp=Ap*activeLayerDepth		# Volume of "active" profundal sediments; [m3]#
+Vl=Al*activeLayerDepth		# Volume of "active" littoral sediments; [m3]#
+zmix=2	# Mixed layer depth of lake; [m]#
+Ve=Ae*zmix		# Volume of epilimnion; [m3]#
+sed=0.3		# Proportion of areal GPP that settles to sediments; []#
+yield=0.25	# Molar yield of CH4 from algal C; [mol CH4 (mol algal C)-1]#
+Pdiff=0.001	# Mass transfer coefficient/diffusivity???; [m d-1]#
+Ldiff=0.005	# Mass transfer coefficient/diffusivity???; [m d-1]#
+ebull=0.1		# Fraction of production released as ebullition [d-1] -> could be a more complex function that causes ebullition at a critical saturating concentration; could also be probabalistic#
+Eprod=0.0001	# Epilimnetic CH4 production per unit GPP; [mol CH4 (mol C)-1]#
+k=0.4	# Piston velocity; [m d-1]#
+oxE=0.9	# Fraction of epilimnion CH4 lost to oxidation; [d-1]#
+params=c(Vp=Vp,Vl=Vl,Ve=Ve,Ap=Ap,Al=Al,Ae=Ae,zmix=zmix,sed=sed,yield=yield,Pdiff=Pdiff,Ldiff=Ldiff,ebull=ebull,Eprod=Eprod,k,oxE)
+init=c(0.2*Vp,0.2*Vl,0.2*Ve)		#starting all the same (sort of like after mixis); 200 uM#
+t.s=1:180#
+#
+GPP=0.1		# [mol C m-3 d-1]Jake says this is average for morris --> Stuart will remember how to do this dynamically#
+atmCH4=0.1	# [mol CH4 m-3]Will thinks this is about right --> We can check this and use whatever the global average is#
+#
+out=ode(y=init,times=t.s,func=timeStepCH4,parms=params)
+dim(out)
+head(out)
+init=c(P=0.2*Vp,L=0.2*Vl,E=0.2*Ve)		#starting all the same (sort of like after mixis); 200 uM#
+t.s=1:180#
+#
+GPP=0.1		# [mol C m-3 d-1]Jake says this is average for morris --> Stuart will remember how to do this dynamically#
+atmCH4=0.1	# [mol CH4 m-3]Will thinks this is about right --> We can check this and use whatever the global average is#
+#
+out=ode(y=init,times=t.s,func=timeStepCH4,parms=params)
+head(out)
+dev.new()#
+par(mfrow=c(3,1))#
+plot(out[,1],out[,2],type='l',lwd=2,xlab="Time",ylab="Profundal CH4")#
+plot(out[,1],out[,3],type='l',lwd=2,xlab="Time",ylab="Littoral CH4",col='red')#
+plot(out[,1],out[,4],type='l',lwd=2,xlab="Time",ylab="Epilimnion CH4",col='green')
+dim(out)
+out[180,]
+65.366/Ve
+65.366/Ve*1000
+DecayVector <- c(0.05,0.12,0.14,0.05,0.06,0.09,0.05,0.14,0.15)#
+TempVector <- c(5,20,35,5,20,35,5,20,35)#
+UVBVector <- c(2,25,50,25,2,2,50,50,25)#
+StricklerFig4pH10 <- data.frame(Decay=DecayVector, Temp=TempVector, UVB=UVBVector)#
+#
+# Fit the model (including all interactions) using lm#
+model=lm(Decay~Temp*UVB,StricklerFig4pH10)#
+summary(model) #
+par(mfrow=c(2,2)) #
+plot(model)
+DecayVector <- c(0.05,0.12,0.14,0.05,0.06,0.09,0.05,0.14,0.15)#
+TempVector <- c(5,20,35,5,20,35,5,20,35)#
+UVBVector <- c(2,25,50,25,2,2,50,50,25)#
+StricklerFig4pH10 <- data.frame(Decay=DecayVector, Temp=TempVector, UVB=UVBVector)#
+#
+# Fit the model (including all interactions) using lm#
+model=lm(Decay~Temp+UVB,StricklerFig4pH10)#
+summary(model) #
+par(mfrow=c(2,2)) #
+plot(model)
+DecayVector <- c(0.05,0.12,0.14,0.05,0.06,0.09,0.05,0.14,0.15)#
+TempVector <- c(5,20,35,5,20,35,5,20,35)#
+UVBVector <- c(2,25,50,25,2,2,50,50,25)#
+StricklerFig4pH10 <- data.frame(Decay=DecayVector, Temp=TempVector, UVB=UVBVector)#
+#
+# Fit the model (including all interactions) using lm#
+model=lm(Decay~Temp,StricklerFig4pH10)#
+summary(model) #
+par(mfrow=c(2,2)) #
+plot(model)
+exp(2)
+x=5
+y=2
+z=matrix(NA,10,10)
+ls9)
+ls()
+str(ls())
+str(x)
+str(y)
+str(z)
+students=c(#
+"Amanda",#
+"Maggie",#
+"Martha",#
+"Margaret",#
+"Meredith",#
+"Brandon",#
+"Julia",#
+"Pete",#
+"Lainey",#
+"Michael",#
+"Toby"#
+)
+length(students)
+sample(students,length(students),replace=FALSE)
+file.choose()
+choose.file()
+?sum
+?c
+v=c(1,2,3,20)
+v
+v=1:4
+v
+rm(list=ls())
+1:4
+v
+v=1:4
+v
+v=seq(from=2,to=24,by=2)
+v
+?seq
+b=seq(to=4)
+b
+b=seq(from=4)
+b
+rep(2,5)
+v
+length(v)
+max(v)
+min(v)
+range(v)
+rangeofv=range(v)
+length(rangeofv)
+length(range(v))
+v
+v>6
+A=matrix(0,nrow=2,ncol=2)
+A
+A=matrix(1:4,nrow=2,ncol=2)
+A
 dim(A)
 nrow(A)
 length(A)
@@ -45,82 +539,11 @@ rm(list=ls())#
 #
 setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
 #
-########## load utility functions#
-source("nhldWatershedModelSupporting.R")#
-require(deSolve)#
-require(LakeMetabolizer)
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/VICforcings&output/PROC")
-cells=gsub("FLUX_","",grep("FLUX",list.files(),value=TRUE))#
-#
-forceFiles=grep("FORCE",list.files(),value=TRUE)#
-fluxFiles=grep("FLUX",list.files(),value=TRUE)#
-#
-#### UNDERC includes four VIC cells#
-# 46.28125_-89.53125#
-# 46.28125_-89.46875#
-# 46.21875_-89.53125#
-# 46.21875_-89.46875#
-UNDERCcells=cells[c(169,170,182,183)]#
-#
-# Lat Long Year Month Day Runoff_mmDay Precip_mmDay EvapOpenWater_mmDay#
-flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)#
-# Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction#
-force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)#
-#
-curForce=force[force[,3]==2012,]#
-curForce=curForce[curForce[,4]%in%(5:9),]#
-curFlux=flux[flux[,3]==2012,]#
-curFlux=curFlux[curFlux[,4]%in%(5:9),]#
-#
-curFluxDOY=as.numeric(strftime(strptime(paste(curFlux[,4],curFlux[,5],curFlux[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-curForceDOY=as.numeric(strftime(strptime(paste(curForce[,4],curForce[,5],curForce[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-#
-startDOY=min(curFluxDOY)#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
-?approxfun
-x=1:5
-y=c(10,8,6,4,2)
-plot(x,y)
-z=approxfun(x=x,y=y,method="constant")
-z(1.5)
-z(1.99)
-z(2)
-dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")#
-dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")#
-dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")
-dailySun<-function(day){#
-	todayHourlySun=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-	return(todayHourlySun)#
-}
-dailyMaxWind<-function(day){#
-	todayMaxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-	return(todayMaxWind)#
-}
-rm(list=ls())#
-#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-#
-########## load utility functions#
-source("nhldWatershedModelSupporting.R")#
+########## load utility functions and packages#
+source("nhldWatershedModel_onlyHydroSupporting.R")#
 require(deSolve)#
 require(LakeMetabolizer)#
 #
-# load watershed table#
-#d=read.table("vilasSheds_5-18-14.txt",sep="\t",header=TRUE)#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#toFix=which(W2L>100 & d$lakeArea_m2<10000)#
-#d$shedArea_m2[toFix]=d$lakeArea_m2[toFix]*1.5#
-#
-#d=d[!(log10(RTs)<2 & log10(W2L)<0.5),]#
-#d=d[RTs>1,]#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#
-#RTs=d$lakeVol_m3/(dailyP/1000*d$shedAreaNoLake_m2-d$shedAreaNoLake_m2*shedETs/1000+dailyP/1000*d$lakeArea_m2)#
-#
-### cut the oddball RTs????#
-#plot(log10(d$shedArea_m2/d$lakeArea_m2),RTs)#
 ######## load forcing and flux data#
 setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/VICforcings&output/PROC")#
 #
@@ -141,898 +564,453 @@ flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)#
 # Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction#
 force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)#
 #
-curForce=force[force[,3]==2012,]#
-curForce=curForce[curForce[,4]%in%(5:9),]#
-curFlux=flux[flux[,3]==2012,]#
-curFlux=curFlux[curFlux[,4]%in%(5:9),]#
+# starting year/month/day, ending year/mnth/day, & set up force/flux#
+startYear=1950#
+startMonth=1#
+startDay=1#
 #
-curFluxDOY=as.numeric(strftime(strptime(paste(curFlux[,4],curFlux[,5],curFlux[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-curForceDOY=as.numeric(strftime(strptime(paste(curForce[,4],curForce[,5],curForce[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
+endYear=2013#
+endMonth=12#
+endDay=31#
 #
-startDOY=min(curFluxDOY)#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-###### forcing functions --> when running longer can just use January 1, 1950 as an epoch#
-dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")#
-dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")#
-dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")#
+curForce=force[which(((force[,3]==startYear) & (force[,4]==startMonth) & (force[,5]==startDay) & (force[,6]==0))):which(((force[,3]==endYear) & (force[,4]==endMonth) & (force[,5]==endDay) & (force[,6]==23))),]#
 #
-dailySun<-function(day){#
-	todayHourlySun=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-	return(todayHourlySun)#
-}#
+curFlux=flux[which(((flux[,3]==startYear) & (flux[,4]==startMonth) & (flux[,5]==startDay))):which(((flux[,3]==endYear) & (flux[,4]==endMonth) & (flux[,5]==endDay))),]#
 #
-dailyMaxWind<-function(day){#
-	todayMaxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-	return(todayMaxWind)#
-}
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)
-ntlGW=ntlGW[,c(1:4,9:10,14)]
-ntlGW
-head(ntlGW)
-ntlGW=ntlGW[ntlGW$doc<10,]
-head(ntlGW)
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]
-ntlGW=ntlGW[ntlGW$doc<10,]
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)#
-ntlGW=ntlGW[,c(1:4,9:10,14)]#
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]#
-ntlGW=ntlGW[ntlGW$doc<10,]
-head(ntlGW)
-boxplot(ntlGW$dic~ntlGW$wellid,ylab="DIC")
-quartz()
-boxplot(ntlGW$doc~ntlGW$wellid,ylab="DOC")
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)#
-ntlGW=ntlGW[,c(1:4,9:10,14)]#
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]
-boxplot(ntlGW$doc~ntlGW$wellid,ylab="DOC")
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)#
-ntlGW=ntlGW[,c(1:4,9:10,14)]#
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]#
-ntlGW=ntlGW[ntlGW$doc<10,]
-boxplot(ntlGW$dic~ntlGW$wellid,ylab="DIC")
-quartz()
-boxplot(ntlGW$doc~ntlGW$wellid,ylab="DOC")
-quartz()
-boxplot(ntlGW$totp~ntlGW$wellid,ylab="TP")
-lottig2011DOC=read.table("lottig2012Fig.txt",header=FALSE,sep=",")
-plot(lottig2011DOC[,1],lottig2011DOC[,2],log='y',ylim=c(2,100))
-head(lottig2011DOC)
-summary(lm(log(lottig2011DOC[,2])~lottig2011DOC[,1]))
-plot(lottig2011DOC[,1],lottig2011DOC[,2],log='y',ylim=c(2,100))
-streamDOCs=exp(1.3961+3.245*0.15)/12*1000/1000 #exp(1.3961+3.245*d$wetland)/12*1000/1000	# from lottig 2012; mol m-3#
-streamPOCs=3/12*1000/1000		# ~3 mg L-1; buffam 2011; mol m-3#
-streamDICs=10/12*1000/1000		#10 mg L-1; lottig 2011; mol m-3#
-streamPs=0.04/31*1000/1000		#.025 mg L-1 TDP & 0.04 mg L-1 TP; lottig 2011; mol m-3#
-gwDOCs=median(ntlGW$doc,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwDICs=median(ntlGW$dic,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwPs=median(ntlGW$totp,na.rm=TRUE)/31*1000/1e6		# mol m-3
-kH=29.41	# Henry's Law constant for CO2 in water [L atm mol-1]#
-#
-precipDOC=1.1/12*1000/1000		#mol m-3; from Likens et al. 1983 @ Hubbard Brook#
-precipDIC=400/1e6*1/kH*1000	# mol C m-3; assumed in equilibrium with atmosphere#
-precipP=0.01/31*1000/1000	# mol m-3; Murphy & DOskey 1976 JGLR
-curLakeArea=	80506.8				#d$lakeArea_m2[i]	#m2#
-	curLakeVol=322027.2					#d$lakeVol_m3[i]		#m3#
-	curMeanDepth=4				#curLakeVol/curLakeArea	#m#
-	curShedArea=	241959.1				#d$shedAreaNoLake_m2[i]	#m2#
-	cur_streamDOC=2.1				#streamDOCs[i]	# mol m-3#
-	gwQ=-179961.5*0.0283168				# m3 d-1 from GFLOW
-gwQ=gwQ/60
-DR=((curLakeArea*10^-6)^0.5)/curMeanDepth	# dynamic ratio; unitless; from Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147. impacts turbulence and sedimentation
-distShore=sqrt(curLakeArea/pi)/2		#mean distance from shore; m; from GIS
-if(DR<0.26){Ydr=DR/0.26}else{Ydr=0.26/DR} #adjustment to sedimentation rate based on turbulence, [unitless]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147
-hypoVolume=0
-params=c(DR=DR,curLakeArea=curLakeArea,curLakeVol=curLakeVol,Ydr=Ydr,curMeanDepth=curMeanDepth)
-initialX=c(DOC=8/12*curLakeVol,DIC=0.3/12*curLakeVol,tPOC=0.1/12*curLakeVol,Phyto=1/12*curLakeVol,SRP=10/31/1000*curLakeVol,Buried=0)
-nsteps=nrow(curFlux)
-times=curFluxDOY
-depWithDist<-function(distShore,precip,maxWind){#
-	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1#
-	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1#
-	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1#
-}
-lightAtten<-function(z,I0,kD){#
-	Iz=I0*exp(-kD*z)#
-	return(Iz)#
-}#
-lightAttenTS<-function(I0,kD,zmix){#
-	avgI=numeric(length(I0))#
-	for(i in 1:length(avgI)){#
-		avgI[i]=integrate(lightAtten,0,zmix,I0=I0[i],kD=kD)$value/zmix#
-	}#
-	return(avgI)#
-}#
-#
-# atmospheric deposition#
-depWithDist<-function(distShore,precip,maxWind){#
-	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1#
-	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1#
-	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1#
-}#
-#
-# daily tPOC deposition based on Preston et al.#
-dailyTPOCdep<-function(day,curLakeArea){#
-	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-#
-	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(t),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1#
-	return(tPOCdepTotal)#
-}
-# atmospheric deposition#
-depWithDist<-function(distShore,precip,maxWind){#
-	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1#
-	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1#
-	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1#
-	return(tPOCdep)#
-}
-#vilasWatershedModel_5-17-14.R supportin functions#
-#
-#light attenuation#
-lightAtten<-function(z,I0,kD){#
-	Iz=I0*exp(-kD*z)#
-	return(Iz)#
-}#
-lightAttenTS<-function(I0,kD,zmix){#
-	avgI=numeric(length(I0))#
-	for(i in 1:length(avgI)){#
-		avgI[i]=integrate(lightAtten,0,zmix,I0=I0[i],kD=kD)$value/zmix#
-	}#
-	return(avgI)#
-}#
-#
-# atmospheric deposition#
-depWithDist<-function(distShore,precip,maxWind){#
-	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1#
-	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1#
-	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1#
-	return(tPOCdep)#
-}#
-#
-# daily tPOC deposition based on Preston et al.#
-dailyTPOCdep<-function(day,curLakeArea){#
-	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-#
-	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(t),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1#
-	return(tPOCdepTotal)#
-}#
-#
-# dailyGPP based on hourly light, etc.#
-dailyGPP<-function(day){#
-	hourlyPAR=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-#
-	#### trying different GPP formulation#
-	PPmax=15#2.2		# day-1#
-	kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)#
-#
-	chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]#
-	kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script#
-	avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]#
-	GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1#
-	return(GPP)#
-}
-distShore=sqrt(curLakeArea/pi)/2		#mean distance from shore; m; from GIS
-distShore
-times
-i=1
-day=times[i]
-dailyTPOCdep(day,curLakeArea)
-dailyTPOCdep<-function(day,curLakeArea,curForce,curForceDOY){#
-	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-#
-	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(t),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1#
-	return(tPOCdepTotal)#
-}
-dailyTPOCdep(day,curLakeArea,curForce,curForceDOY)
-maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition
-maxWind
-dailyPrecip
-t=day
-dailyPrecip(t)
-dailyTPOCdep<-function(day,precip,curLakeArea,curForce,curForceDOY){#
-	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-#
-	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=precip,maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1#
-	return(tPOCdepTotal)#
-}
-dailyTPOCdep<-function(day,precip,curLakeArea,curForce,curForceDOY){#
-	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-#
-	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(day),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1#
-	return(tPOCdepTotal)#
-}
-# daily tPOC deposition based on Preston et al.#
-dailyTPOCdep<-function(day,curLakeArea,curForce,curForceDOY){#
-	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-#
-	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(day),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1#
-	return(tPOCdepTotal)#
-}
-dailyTPOCdep(day,curLakeArea,curForce,curForceDOY)
-rm(list=ls())
-rm(list=ls())#
-#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-#
-########## load utility functions#
-source("nhldWatershedModelSupporting.R")#
-require(deSolve)#
-require(LakeMetabolizer)#
-#
-# load watershed table#
-#d=read.table("vilasSheds_5-18-14.txt",sep="\t",header=TRUE)#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#toFix=which(W2L>100 & d$lakeArea_m2<10000)#
-#d$shedArea_m2[toFix]=d$lakeArea_m2[toFix]*1.5#
-#
-#d=d[!(log10(RTs)<2 & log10(W2L)<0.5),]#
-#d=d[RTs>1,]#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#
-#RTs=d$lakeVol_m3/(dailyP/1000*d$shedAreaNoLake_m2-d$shedAreaNoLake_m2*shedETs/1000+dailyP/1000*d$lakeArea_m2)#
-#
-### cut the oddball RTs????#
-#plot(log10(d$shedArea_m2/d$lakeArea_m2),RTs)#
-######## load forcing and flux data#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/VICforcings&output/PROC")#
-#
-cells=gsub("FLUX_","",grep("FLUX",list.files(),value=TRUE))#
-#
-forceFiles=grep("FORCE",list.files(),value=TRUE)#
-fluxFiles=grep("FLUX",list.files(),value=TRUE)#
-#
-#### UNDERC includes four VIC cells#
-# 46.28125_-89.53125#
-# 46.28125_-89.46875#
-# 46.21875_-89.53125#
-# 46.21875_-89.46875#
-UNDERCcells=cells[c(169,170,182,183)]#
-#
-# Lat Long Year Month Day Runoff_mmDay Precip_mmDay EvapOpenWater_mmDay#
-flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)#
-# Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction#
-force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)#
-#
-curForce=force[force[,3]==2012,]#
-curForce=curForce[curForce[,4]%in%(5:9),]#
-curFlux=flux[flux[,3]==2012,]#
-curFlux=curFlux[curFlux[,4]%in%(5:9),]#
-#
-curFluxDOY=as.numeric(strftime(strptime(paste(curFlux[,4],curFlux[,5],curFlux[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-curForceDOY=as.numeric(strftime(strptime(paste(curForce[,4],curForce[,5],curForce[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-#
-startDOY=min(curFluxDOY)#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-###### forcing functions --> when running longer can just use January 1, 1950 as an epoch#
-dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")#
-dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")#
-dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")#
-#
-dailySun<-function(day){#
-	todayHourlySun=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-	return(todayHourlySun)#
-}#
-dailyMaxWind<-function(day){#
-	todayMaxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-	return(todayMaxWind)#
-}#
-# calculate concentrations of DIC, DOC, TP based on landcover#
-#setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14/waterConstituents")#
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)#
-ntlGW=ntlGW[,c(1:4,9:10,14)]#
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]#
-ntlGW=ntlGW[ntlGW$doc<10,]#
-#boxplot(ntlGW$dic~ntlGW$wellid,ylab="DIC")#
-#quartz()#
-#boxplot(ntlGW$doc~ntlGW$wellid,ylab="DOC")#
-#quartz()#
-#boxplot(ntlGW$totp~ntlGW$wellid,ylab="TP")#
-#
-lottig2011DOC=read.table("lottig2012Fig.txt",header=FALSE,sep=",")#
-#
-#plot(lottig2011DOC[,1],lottig2011DOC[,2],log='y',ylim=c(2,100))#
-#summary(lm(log(lottig2011DOC[,2])~lottig2011DOC[,1]))#
-#
-streamDOCs=exp(1.3961+3.245*0.15)/12*1000/1000 #exp(1.3961+3.245*d$wetland)/12*1000/1000	# from lottig 2012; mol m-3#
-streamPOCs=3/12*1000/1000		# ~3 mg L-1; buffam 2011; mol m-3#
-streamDICs=10/12*1000/1000		#10 mg L-1; lottig 2011; mol m-3#
-streamPs=0.04/31*1000/1000		#.025 mg L-1 TDP & 0.04 mg L-1 TP; lottig 2011; mol m-3#
-gwDOCs=median(ntlGW$doc,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwDICs=median(ntlGW$dic,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwPs=median(ntlGW$totp,na.rm=TRUE)/31*1000/1e6		# mol m-3#
-#
-kH=29.41	# Henry's Law constant for CO2 in water [L atm mol-1]#
-#
-precipDOC=1.1/12*1000/1000		#mol m-3; from Likens et al. 1983 @ Hubbard Brook#
-precipDIC=400/1e6*1/kH*1000	# mol C m-3; assumed in equilibrium with atmosphere#
-precipP=0.01/31*1000/1000	# mol m-3; Murphy & DOskey 1976 JGLR#
-# iterate through lakes  --> perhaps in future run all lakes at once????#
-#for i in 1:nrow(d){#
-	# current lake and shed parameters#
-	curLakeArea=	80506.8				#d$lakeArea_m2[i]	#m2#
-	curLakeVol=322027.2					#d$lakeVol_m3[i]		#m3#
-	curMeanDepth=4				#curLakeVol/curLakeArea	#m#
-	curShedArea=	241959.1				#d$shedAreaNoLake_m2[i]	#m2#
-	cur_streamDOC=2.1				#streamDOCs[i]	# mol m-3#
-	gwQ=-179961.5*0.0283168				# m3 d-1 from GFLOW#
-	##******** this corresponds to 62 mm d-1; we think this is more like 1 mm d-1#
-	#### for now just divide GW by 60 to make some progress...#
-	gwQ=gwQ/60#
-	DR=((curLakeArea*10^-6)^0.5)/curMeanDepth	# dynamic ratio; unitless; from Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147. impacts turbulence and sedimentation#
-	distShore=sqrt(curLakeArea/pi)/2		#mean distance from shore; m; from GIS#
-#
-	if(DR<0.26){Ydr=DR/0.26}else{Ydr=0.26/DR} #adjustment to sedimentation rate based on turbulence, [unitless]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147#
-##### WHAT TO DO WITH LITTLE LAKES WITH HUGE WATERSHEDS#
-	# are these "beaver ponds" with super low residence time?#
-	# are these delineation errors and they should be seepage lakes with WA2LA of ~1? #
-#
-# run model with epi driven by DOC-based lit. models#
-	# run continuously with mean open water season numbers and sum across that range for annual; assumes in winter lake is "shut off"; go with April 15 (day 89) to Dec 1 (335); 248 days#
-#
-	# need a hypovolume initially to start simulation#
-	hypoVolume=0
-curFluxDOY
-day=122
-dailyTPOCdep(day,curLakeArea,curForce,curForceDOY)
-dailyTPOCdep
-source("nhldWatershedModelSupporting.R")
-dailyTPOCdep(day,curLakeArea,curForce,curForceDOY)
-day
-hourlyPAR=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...
-hourlyPAR
-length(hourlyPAR)
-PPmax=15#2.2		# day-1#
-	kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)#
-#
-	chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]#
-	kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script#
-	avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]#
-	GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
-PHyto=1
-V=1000
-SRP=10
-hourlyPAR=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-#
-	#### trying different GPP formulation#
-	PPmax=15#2.2		# day-1#
-	kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)#
-#
-	phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g.
-chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
-Phyto=1
-chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
-chlCur
-kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
-DOC=5
-chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]#
-	kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
-avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
-zmix=2
-avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
-GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
-hourlyPAR=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-#
-	#### trying different GPP formulation#
-	PPmax=15#2.2		# day-1#
-	kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)#
-	Ik=180 		# light limitation benchmark for GPP, [umol cm-2 s-1]; Vadeboncoeur et al. 2008#
-	phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g. #
-#
-	chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]#
-	kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script#
-	avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]#
-	GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
-GPP
-rm(list=ls())#
-#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-#
-########## load utility functions#
-source("nhldWatershedModelSupporting.R")#
-require(deSolve)#
-require(LakeMetabolizer)#
-#
-# load watershed table#
-#d=read.table("vilasSheds_5-18-14.txt",sep="\t",header=TRUE)#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#toFix=which(W2L>100 & d$lakeArea_m2<10000)#
-#d$shedArea_m2[toFix]=d$lakeArea_m2[toFix]*1.5#
-#
-#d=d[!(log10(RTs)<2 & log10(W2L)<0.5),]#
-#d=d[RTs>1,]#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#
-#RTs=d$lakeVol_m3/(dailyP/1000*d$shedAreaNoLake_m2-d$shedAreaNoLake_m2*shedETs/1000+dailyP/1000*d$lakeArea_m2)#
-#
-### cut the oddball RTs????#
-#plot(log10(d$shedArea_m2/d$lakeArea_m2),RTs)#
-######## load forcing and flux data#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/VICforcings&output/PROC")#
-#
-cells=gsub("FLUX_","",grep("FLUX",list.files(),value=TRUE))#
-#
-forceFiles=grep("FORCE",list.files(),value=TRUE)#
-fluxFiles=grep("FLUX",list.files(),value=TRUE)#
-#
-#### UNDERC includes four VIC cells#
-# 46.28125_-89.53125#
-# 46.28125_-89.46875#
-# 46.21875_-89.53125#
-# 46.21875_-89.46875#
-UNDERCcells=cells[c(169,170,182,183)]#
-#
-# Lat Long Year Month Day Runoff_mmDay Precip_mmDay EvapOpenWater_mmDay#
-flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)#
-# Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction#
-force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)#
-#
-curForce=force[force[,3]==2012,]#
-curForce=curForce[curForce[,4]%in%(5:9),]#
-curFlux=flux[flux[,3]==2012,]#
-curFlux=curFlux[curFlux[,4]%in%(5:9),]#
-#
-curFluxDOY=as.numeric(strftime(strptime(paste(curFlux[,4],curFlux[,5],curFlux[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-curForceDOY=as.numeric(strftime(strptime(paste(curForce[,4],curForce[,5],curForce[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-#
-startDOY=min(curFluxDOY)#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-###### forcing functions --> when running longer can just use January 1, 1950 as an epoch#
-dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")#
-dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")#
-dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")#
-#
-dailySun<-function(day){#
-	todayHourlySun=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-	return(todayHourlySun)#
-}#
-dailyMaxWind<-function(day){#
-	todayMaxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-	return(todayMaxWind)#
-}#
-# calculate concentrations of DIC, DOC, TP based on landcover#
-#setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14/waterConstituents")#
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)#
-ntlGW=ntlGW[,c(1:4,9:10,14)]#
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]#
-ntlGW=ntlGW[ntlGW$doc<10,]#
-#boxplot(ntlGW$dic~ntlGW$wellid,ylab="DIC")#
-#quartz()#
-#boxplot(ntlGW$doc~ntlGW$wellid,ylab="DOC")#
-#quartz()#
-#boxplot(ntlGW$totp~ntlGW$wellid,ylab="TP")#
-#
-lottig2011DOC=read.table("lottig2012Fig.txt",header=FALSE,sep=",")#
-#
-#plot(lottig2011DOC[,1],lottig2011DOC[,2],log='y',ylim=c(2,100))#
-#summary(lm(log(lottig2011DOC[,2])~lottig2011DOC[,1]))#
-#
-streamDOCs=exp(1.3961+3.245*0.15)/12*1000/1000 #exp(1.3961+3.245*d$wetland)/12*1000/1000	# from lottig 2012; mol m-3#
-streamPOCs=3/12*1000/1000		# ~3 mg L-1; buffam 2011; mol m-3#
-streamDICs=10/12*1000/1000		#10 mg L-1; lottig 2011; mol m-3#
-streamPs=0.04/31*1000/1000		#.025 mg L-1 TDP & 0.04 mg L-1 TP; lottig 2011; mol m-3#
-gwDOCs=median(ntlGW$doc,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwDICs=median(ntlGW$dic,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwPs=median(ntlGW$totp,na.rm=TRUE)/31*1000/1e6		# mol m-3#
-#
-kH=29.41	# Henry's Law constant for CO2 in water [L atm mol-1]#
-#
-precipDOC=1.1/12*1000/1000		#mol m-3; from Likens et al. 1983 @ Hubbard Brook#
-precipDIC=400/1e6*1/kH*1000	# mol C m-3; assumed in equilibrium with atmosphere#
-precipP=0.01/31*1000/1000	# mol m-3; Murphy & DOskey 1976 JGLR#
-# iterate through lakes  --> perhaps in future run all lakes at once????#
-#for i in 1:nrow(d){#
-	# current lake and shed parameters#
-	curLakeArea=	80506.8				#d$lakeArea_m2[i]	#m2#
-	curLakeVol=322027.2					#d$lakeVol_m3[i]		#m3#
-	curMeanDepth=4				#curLakeVol/curLakeArea	#m#
-	curShedArea=	241959.1				#d$shedAreaNoLake_m2[i]	#m2#
-	cur_streamDOC=2.1				#streamDOCs[i]	# mol m-3#
-	gwQ=-179961.5*0.0283168				# m3 d-1 from GFLOW#
-	##******** this corresponds to 62 mm d-1; we think this is more like 1 mm d-1#
-	#### for now just divide GW by 60 to make some progress...#
-	gwQ=gwQ/60#
-	DR=((curLakeArea*10^-6)^0.5)/curMeanDepth	# dynamic ratio; unitless; from Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147. impacts turbulence and sedimentation#
-	distShore=sqrt(curLakeArea/pi)/2		#mean distance from shore; m; from GIS#
-#
-	if(DR<0.26){Ydr=DR/0.26}else{Ydr=0.26/DR} #adjustment to sedimentation rate based on turbulence, [unitless]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147#
-##### WHAT TO DO WITH LITTLE LAKES WITH HUGE WATERSHEDS#
-	# are these "beaver ponds" with super low residence time?#
-	# are these delineation errors and they should be seepage lakes with WA2LA of ~1? #
-#
-# run model with epi driven by DOC-based lit. models#
-	# run continuously with mean open water season numbers and sum across that range for annual; assumes in winter lake is "shut off"; go with April 15 (day 89) to Dec 1 (335); 248 days#
-#
-	# need a hypovolume initially to start simulation#
-	hypoVolume=0
-params=c(DR=DR,curLakeArea=curLakeArea,curLakeVol=curLakeVol,Ydr=Ydr,curMeanDepth=curMeanDepth)
-initialX=c(DOC=8/12*curLakeVol,DIC=0.3/12*curLakeVol,tPOC=0.1/12*curLakeVol,Phyto=1/12*curLakeVol,SRP=10/31/1000*curLakeVol,Buried=0)
-nsteps=nrow(curFlux)
-times=curFluxDOY
-source("nhldWatershedModelSupporting.R")
-timeStep(1,initialX,params,curForce,curForceDOY)
-params
-DR
-curLakeArea
-curLakeVol
-Ydr
-curMeanDepth
-X=intialX
-X
-X=initialX
-X
-DOC=X[1]#
-		DIC=X[2]#
-		tPOC=X[3]#
-		Phyto=X[4]#
-		SRP=X[5]#
-		Buried=X[6]
-streamQ=dailyRunoff(t)*curShedArea/1000			#m3 day-1	****** problem because of interpolating?
-curShedArea
-params=c(DR=DR,curLakeArea=curLakeArea,curLakeVol=curLakeVol,Ydr=Ydr,curMeanDepth=curMeanDepth,curShedArea=curShedArea)
-curShedArea
-t
-t=1
-dailyRunoff(t)
-t=130
-dailyRunoff(t)
-timeStep(130,initialX,params,curForce,curForceDOY)
-head(curForce)
-head(curFlux)
-curFluxDOY=as.numeric(strftime(strptime(paste(curFlux[,4],curFlux[,5],curFlux[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-curForceDOY=as.numeric(strftime(strptime(paste(curForce[,4],curForce[,5],curForce[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-#
-curFluxDOY=curFluxDOY-min(curFluxDOY)+1#
-curForceDOY=curForceDOY-min(curForceDOY)+1#
-#
-startDOY=min(curFluxDOY)
-startDOY
-range(curFluxDOY)
-rm(list=ls())#
-#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-#
-########## load utility functions#
-source("nhldWatershedModelSupporting.R")#
-require(deSolve)#
-require(LakeMetabolizer)#
-#
-# load watershed table#
-#d=read.table("vilasSheds_5-18-14.txt",sep="\t",header=TRUE)#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#toFix=which(W2L>100 & d$lakeArea_m2<10000)#
-#d$shedArea_m2[toFix]=d$lakeArea_m2[toFix]*1.5#
-#
-#d=d[!(log10(RTs)<2 & log10(W2L)<0.5),]#
-#d=d[RTs>1,]#
-#
-#W2L=d$shedArea_m2/d$lakeArea_m2#
-#
-#RTs=d$lakeVol_m3/(dailyP/1000*d$shedAreaNoLake_m2-d$shedAreaNoLake_m2*shedETs/1000+dailyP/1000*d$lakeArea_m2)#
-#
-### cut the oddball RTs????#
-#plot(log10(d$shedArea_m2/d$lakeArea_m2),RTs)#
-######## load forcing and flux data#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/VICforcings&output/PROC")#
-#
-cells=gsub("FLUX_","",grep("FLUX",list.files(),value=TRUE))#
-#
-forceFiles=grep("FORCE",list.files(),value=TRUE)#
-fluxFiles=grep("FLUX",list.files(),value=TRUE)#
-#
-#### UNDERC includes four VIC cells#
-# 46.28125_-89.53125#
-# 46.28125_-89.46875#
-# 46.21875_-89.53125#
-# 46.21875_-89.46875#
-UNDERCcells=cells[c(169,170,182,183)]#
-#
-# Lat Long Year Month Day Runoff_mmDay Precip_mmDay EvapOpenWater_mmDay#
-flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)#
-# Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction#
-force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)#
-#
-curForce=force[force[,3]==2012,]#
-curForce=curForce[curForce[,4]%in%(5:9),]#
-curFlux=flux[flux[,3]==2012,]#
-curFlux=curFlux[curFlux[,4]%in%(5:9),]#
-#
-curFluxDOY=as.numeric(strftime(strptime(paste(curFlux[,4],curFlux[,5],curFlux[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-curForceDOY=as.numeric(strftime(strptime(paste(curForce[,4],curForce[,5],curForce[,3],sep="-"),format="%m-%d-%Y"),format="%j"))#
-#
-curFluxDOY=curFluxDOY-min(curFluxDOY)+1#
-curForceDOY=curForceDOY-min(curForceDOY)+1#
-#
-startDOY=min(curFluxDOY)#
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-###### forcing functions --> when running longer can just use January 1, 1950 as an epoch#
-dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")#
-dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")#
-dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")#
-#
-dailySun<-function(day){#
-	todayHourlySun=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-	return(todayHourlySun)#
-}#
-dailyMaxWind<-function(day){#
-	todayMaxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-	return(todayMaxWind)#
-}#
-# calculate concentrations of DIC, DOC, TP based on landcover#
-#setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14/waterConstituents")#
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)#
-ntlGW=ntlGW[,c(1:4,9:10,14)]#
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]#
-ntlGW=ntlGW[ntlGW$doc<10,]#
-#boxplot(ntlGW$dic~ntlGW$wellid,ylab="DIC")#
-#quartz()#
-#boxplot(ntlGW$doc~ntlGW$wellid,ylab="DOC")#
-#quartz()#
-#boxplot(ntlGW$totp~ntlGW$wellid,ylab="TP")#
-#
-lottig2011DOC=read.table("lottig2012Fig.txt",header=FALSE,sep=",")#
-#
-#plot(lottig2011DOC[,1],lottig2011DOC[,2],log='y',ylim=c(2,100))#
-#summary(lm(log(lottig2011DOC[,2])~lottig2011DOC[,1]))#
-#
-streamDOCs=exp(1.3961+3.245*0.15)/12*1000/1000 #exp(1.3961+3.245*d$wetland)/12*1000/1000	# from lottig 2012; mol m-3#
-streamPOCs=3/12*1000/1000		# ~3 mg L-1; buffam 2011; mol m-3#
-streamDICs=10/12*1000/1000		#10 mg L-1; lottig 2011; mol m-3#
-streamPs=0.04/31*1000/1000		#.025 mg L-1 TDP & 0.04 mg L-1 TP; lottig 2011; mol m-3#
-gwDOCs=median(ntlGW$doc,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwDICs=median(ntlGW$dic,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwPs=median(ntlGW$totp,na.rm=TRUE)/31*1000/1e6		# mol m-3#
-#
-kH=29.41	# Henry's Law constant for CO2 in water [L atm mol-1]#
-#
-precipDOC=1.1/12*1000/1000		#mol m-3; from Likens et al. 1983 @ Hubbard Brook#
-precipDIC=400/1e6*1/kH*1000	# mol C m-3; assumed in equilibrium with atmosphere#
-precipP=0.01/31*1000/1000	# mol m-3; Murphy & DOskey 1976 JGLR#
-# iterate through lakes  --> perhaps in future run all lakes at once????#
-#for i in 1:nrow(d){#
-	# current lake and shed parameters#
-	curLakeArea=	80506.8				#d$lakeArea_m2[i]	#m2#
-	curLakeVol=322027.2					#d$lakeVol_m3[i]		#m3#
-	curMeanDepth=4				#curLakeVol/curLakeArea	#m#
-	curShedArea=	241959.1				#d$shedAreaNoLake_m2[i]	#m2#
-	cur_streamDOC=2.1				#streamDOCs[i]	# mol m-3#
-	gwQ=-179961.5*0.0283168				# m3 d-1 from GFLOW#
-	##******** this corresponds to 62 mm d-1; we think this is more like 1 mm d-1#
-	#### for now just divide GW by 60 to make some progress...#
-	gwQ=gwQ/60#
-	DR=((curLakeArea*10^-6)^0.5)/curMeanDepth	# dynamic ratio; unitless; from Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147. impacts turbulence and sedimentation#
-	distShore=sqrt(curLakeArea/pi)/2		#mean distance from shore; m; from GIS#
-#
-	if(DR<0.26){Ydr=DR/0.26}else{Ydr=0.26/DR} #adjustment to sedimentation rate based on turbulence, [unitless]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147#
-##### WHAT TO DO WITH LITTLE LAKES WITH HUGE WATERSHEDS#
-	# are these "beaver ponds" with super low residence time?#
-	# are these delineation errors and they should be seepage lakes with WA2LA of ~1? #
-#
-# run model with epi driven by DOC-based lit. models#
-	# run continuously with mean open water season numbers and sum across that range for annual; assumes in winter lake is "shut off"; go with April 15 (day 89) to Dec 1 (335); 248 days#
-#
-	# need a hypovolume initially to start simulation#
-	hypoVolume=0#
-#
-	# combine parameters into vector#
-	params=c(DR=DR,curLakeArea=curLakeArea,curLakeVol=curLakeVol,Ydr=Ydr,curMeanDepth=curMeanDepth,curShedArea=curShedArea)#
-#
-	# initial values#
-	initialX=c(DOC=8/12*curLakeVol,DIC=0.3/12*curLakeVol,tPOC=0.1/12*curLakeVol,Phyto=1/12*curLakeVol,SRP=10/31/1000*curLakeVol,Buried=0)#
-#
-	nsteps=nrow(curFlux)#
-	times=curFluxDOY
-times
-out<-ode(y=initialX,times=times,func=timeStep,parms=params)
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)
-dim(out)
-t=1
-X=initialX
-params
-timeStep(t,X,params,curForce,curForceDOY)
-curLakeVol
-zmix
-X
-214684.8-714.75
-213970/(V*1000)
-?deSolve
-?ode
-source("nhldWatershedModelSupporting.R")
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY,method='iteration')
-dim(out)
-head(out)
-plot(out[,1],out[,2],type='l')
-plot(out[,1],out[,2]/out[,9],type='l')
-plot(out[,1],out[,3]/out[,9],type='l')
-plot(out[,1],out[,4]/out[,9],type='l')
-plot(out[,1],out[,5]/out[,9],type='l')
-plot(out[,1],out[,6]/out[,9],type='l')
-source("nhldWatershedModelSupporting.R")
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)
-times
-dim(curFlux)
-dim(curForce)
-curForce[3650:3672,]
-times=times[-length(times)]
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)
-times
-range(curFluxDOY)
-head(out)
-plot(out[,1],out[,2]/out[,9],type='l')
-plot(out[,1],out[,3]/out[,9],type='l')
-plot(out[,1],out[,2]/out[,9]*12,type='l',xlab="time",ylab="DOC (mg C L-1)")
-plot(out[,1],out[,3]/out[,9]*12,type='l',xlab="time",ylab="DIC (mg C L-1)")
-plot(out[,1],out[,4]/out[,9]*12,type='l',xlab="time",ylab="tPOC (mg C L-1)")
-plot(out[,1],out[,5]/out[,9]*12,type='l',xlab="time",ylab="Phyto (mg C L-1)")
-plot(out[,1],out[,5]/out[,9]*31,type='l',xlab="time",ylab="SRP (mg C L-1)")
-plot(out[,1],out[,5]/out[,9]*31,type='l',xlab="time",ylab="SRP (mg P L-1)")
-10/31/1000*curLakeVol
-104/curLakeVol*1000*31
-104/curLakeVol*1000*31
-range(out[,9])
-curLakeVol
-238099.7
-out[nrow(out),]
-plot(out[,1],out[,6]/out[,9]*31,type='l',xlab="time",ylab="SRP (mg P L-1)")
-initialX=c(DOC=8/12*curLakeVol,DIC=0.3/12*curLakeVol,tPOC=0.1/12*curLakeVol,Phyto=1/12*curLakeVol,SRP=1/31/1000*curLakeVol,Buried=0)#
-#
-	nsteps=nrow(curFlux)#
-	times=curFluxDOY#
-	times=times[-length(times)]	#
-	out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)#
-	#out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY,method='iteration')
-head(out)
-dev.new()#
-	par(mfrow=c(2,3))#
-	plot(out[,1],out[,2]/out[,9]*12,xlab="time",ylab="DOC (mg C L-1)")#
-	plot(out[,1],out[,3]/out[,9]*12,xlab="time",ylab="DIC (mg C L-1)")#
-	plot(out[,1],out[,4]/out[,9]*12,xlab="time",ylab="tPOC (mg C L-1)")#
-	plot(out[,1],out[,5]/out[,9]*12,xlab="time",ylab="Phyto C (mg C L-1)")#
-	plot(out[,1],out[,6]/out[,9]*1000*31,xlab="time",ylab="SRP (ug P L-1)")
-dev.new()#
-	par(mfrow=c(2,3))#
-	plot(out[,1],out[,2]/out[,9]*12,xlab="time",ylab="DOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,3]/out[,9]*12,xlab="time",ylab="DIC (mg C L-1)",type='l')#
-	plot(out[,1],out[,4]/out[,9]*12,xlab="time",ylab="tPOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,5]/out[,9]*12,xlab="time",ylab="Phyto C (mg C L-1)",type='l')#
-	plot(out[,1],out[,6]/out[,9]*1000*31,xlab="time",ylab="SRP (ug P L-1)",type='l')
-curForce=rbind(curForce,curForce)
-dim(curForce)
-curFlux=rbind(curFlux,curFluxe)
-curFlux=rbind(curFlux,curFlux)
-curForce=rbind(curForce,curForce)#
-curFlux=rbind(curFlux,curFlux)
-curFluxDOY=curFluxDOY-min(curFluxDOY)+1#
-curForceDOY=curForceDOY-min(curForceDOY)+1
-curFluxDOY
-curFluxDOY=1:nrow(curFlux)
-curFluxDOY
-dim(curForce)
-14688/612
-curForceDOY=rep(curFluxDOY,each=24)
-length(curForceDOY)
 curFluxDOY=1:nrow(curFlux)#
-curForceDOY=rep(curFluxDOY,each=24)
-startDOY=min(curFluxDOY)
+curForceDOY=rep(curFluxDOY,each=24)#
+#
 setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
-###### forcing functions --> when running longer can just use January 1, 1950 as an epoch#
+#
+###### forcing functions#
 dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")#
 dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")#
 dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")#
 #
-dailySun<-function(day){#
-	todayHourlySun=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...#
-	return(todayHourlySun)#
+####### ice cover: using regressions from Finland ()#
+# -> alternative: try looking at NTL data...; fit model with degree days?#
+#
+###***** this stuff will have troubles if ice on happens after january 1 ******####
+aprilForce=force[force[,4]==4,]#
+novForce=force[force[,4]==11,]#
+#
+aprilAT=tapply(aprilForce[,11],aprilForce[,3],FUN=mean)#
+novAT=tapply(novForce[,11],novForce[3],FUN=mean)#
+#
+iceOnDOY=(novAT+28.8)/0.19+182	#equation for November from inland North -> has latest ice on; pick this one because study area much higher N#
+#
+iceOffDOY=(aprilAT-49.7)/-0.16+182-365	#Coastal/South model for breakup; again earliest date, but want this bias...#
+#
+iceON=numeric(nrow(curFlux))#
+years=sort(unique(curFlux[,3]))#
+for(i in 1:length(years)){#
+	curYear=curFlux[curFlux[,3]==years[i],]#
+	curDOY=as.numeric(strftime(strptime(paste(curYear[,3],curYear[,4],curYear[,5],sep="-"),format="%Y-%m-%d"),format="%j"))#
+	iceON[curFlux[,3]==years[i]]=((curDOY<iceOffDOY[names(iceOffDOY)==years[i]]) | (curDOY>iceOnDOY[names(iceOnDOY)==years[i]]))*1#
 }#
-dailyMaxWind<-function(day){#
-	todayMaxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition#
-	return(todayMaxWind)#
-}#
-# calculate concentrations of DIC, DOC, TP based on landcover#
-#setwd("/Files/NDongoing/ScalingLakeProcessesVilasCty/vilasWatersheds_post5-17-14/waterConstituents")#
-ntlGW=read.csv("NTLlter__groundwater_chemistry.csv",header=TRUE,fill=TRUE)#
-ntlGW=ntlGW[,c(1:4,9:10,14)]#
-ntlGW=ntlGW[!is.na(ntlGW[,5]),]#
-ntlGW=ntlGW[ntlGW$doc<10,]#
-#boxplot(ntlGW$dic~ntlGW$wellid,ylab="DIC")#
-#quartz()#
-#boxplot(ntlGW$doc~ntlGW$wellid,ylab="DOC")#
-#quartz()#
-#boxplot(ntlGW$totp~ntlGW$wellid,ylab="TP")#
 #
-lottig2011DOC=read.table("lottig2012Fig.txt",header=FALSE,sep=",")#
+####### load lake/watershed information#
+UNDERCsheds=read.table("../NHLDwatershedDelineations/UNDERCsheds_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)#
 #
-#plot(lottig2011DOC[,1],lottig2011DOC[,2],log='y',ylim=c(2,100))#
-#summary(lm(log(lottig2011DOC[,2])~lottig2011DOC[,1]))#
-#
-streamDOCs=exp(1.3961+3.245*0.15)/12*1000/1000 #exp(1.3961+3.245*d$wetland)/12*1000/1000	# from lottig 2012; mol m-3#
-streamPOCs=3/12*1000/1000		# ~3 mg L-1; buffam 2011; mol m-3#
-streamDICs=10/12*1000/1000		#10 mg L-1; lottig 2011; mol m-3#
-streamPs=0.04/31*1000/1000		#.025 mg L-1 TDP & 0.04 mg L-1 TP; lottig 2011; mol m-3#
-gwDOCs=median(ntlGW$doc,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwDICs=median(ntlGW$dic,na.rm=TRUE)/12*1000/1000	# mol m-3#
-gwPs=median(ntlGW$totp,na.rm=TRUE)/31*1000/1e6		# mol m-3#
-#
-kH=29.41	# Henry's Law constant for CO2 in water [L atm mol-1]#
-#
-precipDOC=1.1/12*1000/1000		#mol m-3; from Likens et al. 1983 @ Hubbard Brook#
-precipDIC=400/1e6*1/kH*1000	# mol C m-3; assumed in equilibrium with atmosphere#
-precipP=0.01/31*1000/1000	# mol m-3; Murphy & DOskey 1976 JGLR#
-# iterate through lakes  --> perhaps in future run all lakes at once????#
-#for i in 1:nrow(d){#
+GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
+i=17		#Long Lake from UNDERCsheds
+curLakeID=UNDERCsheds$Permanent_[i]#
 	# current lake and shed parameters#
-	curLakeArea=	80506.8				#d$lakeArea_m2[i]	#m2#
-	curLakeVol=322027.2					#d$lakeVol_m3[i]		#m3#
-	curMeanDepth=4				#curLakeVol/curLakeArea	#m#
-	curShedArea=	241959.1				#d$shedAreaNoLake_m2[i]	#m2#
-	cur_streamDOC=2.1				#streamDOCs[i]	# mol m-3#
-	gwQ=-179961.5*0.0283168				# m3 d-1 from GFLOW#
-	##******** this corresponds to 62 mm d-1; we think this is more like 1 mm d-1#
-	#### for now just divide GW by 60 to make some progress...#
-	gwQ=gwQ/60#
-	DR=((curLakeArea*10^-6)^0.5)/curMeanDepth	# dynamic ratio; unitless; from Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147. impacts turbulence and sedimentation#
-	distShore=sqrt(curLakeArea/pi)/2		#mean distance from shore; m; from GIS#
+	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2#
+	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3#
+	curLakePerim=UNDERCsheds$Perimeter[i]#
+	##### when don't have volume infer from area...#
+	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units#
+	curShedArea=UNDERCsheds$Area_m2[i]	#m2#
+	#gwIn and gwOut#
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]#
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]#
+	GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)#
+	GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1#
+	gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+	gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+	#### these seem too high; for now just divide GW by 60 to make some progress...#
+	gwIn=gwIn/60#
+	gwOut=gwOut/60#
+	stage0=V0/curLakeArea#
+	alpha=0.99#
+	stageOut=alpha*stage0#
 #
-	if(DR<0.26){Ydr=DR/0.26}else{Ydr=0.26/DR} #adjustment to sedimentation rate based on turbulence, [unitless]; Hakanson & Bryhn 2008. Water Air Soil Pollution, 187: 119-147#
-##### WHAT TO DO WITH LITTLE LAKES WITH HUGE WATERSHEDS#
-	# are these "beaver ponds" with super low residence time?#
-	# are these delineation errors and they should be seepage lakes with WA2LA of ~1? #
+	params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)#
 #
-# run model with epi driven by DOC-based lit. models#
-	# run continuously with mean open water season numbers and sum across that range for annual; assumes in winter lake is "shut off"; go with April 15 (day 89) to Dec 1 (335); 248 days#
-#
-	# need a hypovolume initially to start simulation#
-	hypoVolume=0#
-#
-	# combine parameters into vector#
-	params=c(DR=DR,curLakeArea=curLakeArea,curLakeVol=curLakeVol,Ydr=Ydr,curMeanDepth=curMeanDepth,curShedArea=curShedArea)#
-#
-	# initial values#
-	initialX=c(DOC=8/12*curLakeVol,DIC=0.3/12*curLakeVol,tPOC=0.1/12*curLakeVol,Phyto=1/12*curLakeVol,SRP=1/31/1000*curLakeVol,Buried=0)#
-#
-	nsteps=nrow(curFlux)#
+	initialX=c(V=V0)#
 	times=curFluxDOY#
-	times=times[-length(times)]
-times
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)
+	out<-ode(y=initialX,times=times,func=timeStep,parms=params)#
+#
+	stageSim=out[,2]/curLakeArea#
+	C=(2/3)^1.5*9.806^0.5	# m s-2#
+	L=0.5	# m#
+	H=stageSim-stageOut#
+	QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)#
+	hydroSumm=cbind(times,dailyRunoff(times)*curShedArea/1000,dailyPrecip(times)*curLakeArea/1000,rep(gwIn,length(times)),QoutSim,dailyEvap(times)*curLakeArea/1000*(1-iceON),rep(gwOut,length(times)))#
+	colnames(hydroSumm)=c("time","Qin","precip","GWin","Qout","evap","GWout")#
+#
+	dev.new()#
+	par(mfrow=c(3,3))#
+	plot(hydroSumm[,1],hydroSumm[,2],xlab="time",ylab="Qin (m3 d-1)",type='l',lwd=1)#
+	plot(hydroSumm[,1],hydroSumm[,3],xlab="time",ylab="Precip (m3 d-1)",type='l',lwd=1)#
+	plot(hydroSumm[,1],hydroSumm[,4],xlab="time",ylab="GWin (m3 d-1)",type='l',lwd=1)#
+	plot(hydroSumm[,1],hydroSumm[,5],xlab="time",ylab="Qout (m3 d-1)",type='l',lwd=1)#
+	plot(hydroSumm[,1],hydroSumm[,6],xlab="time",ylab="Evap (m3 d-1)",type='l',lwd=1)#
+	plot(hydroSumm[,1],hydroSumm[,7],xlab="time",ylab="GWout (m3 d-1)",type='l',lwd=1)#
+	plot(out[,1],out[,2],xlab="time",ylab="Volume (m^3)",type='l',lwd=1)#
+	plot(out[,1],stageSim,xlab="time",ylab="stage (m)",type='l',lwd=1)#
+	meanBudget=colMeans(hydroSumm[,-1],na.rm=TRUE)#
+	barplot(meanBudget*c(1,1,1,-1,-1,-1),names.arg=names(meanBudget))
+annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)#
 dev.new()#
-	par(mfrow=c(2,3))#
-	plot(out[,1],out[,2]/out[,9]*12,xlab="time",ylab="DOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,3]/out[,9]*12,xlab="time",ylab="DIC (mg C L-1)",type='l')#
-	plot(out[,1],out[,4]/out[,9]*12,xlab="time",ylab="tPOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,5]/out[,9]*12,xlab="time",ylab="Phyto C (mg C L-1)",type='l')#
-	plot(out[,1],out[,6]/out[,9]*1000*31,xlab="time",ylab="SRP (ug P L-1)",type='l')
-apply(out,2,range)
-sum(out[,6]<0)
-source("nhldWatershedModelSupporting.R")
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)
-dev.new()#
-	par(mfrow=c(2,3))#
-	plot(out[,1],out[,2]/out[,9]*12,xlab="time",ylab="DOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,3]/out[,9]*12,xlab="time",ylab="DIC (mg C L-1)",type='l')#
-	plot(out[,1],out[,4]/out[,9]*12,xlab="time",ylab="tPOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,5]/out[,9]*12,xlab="time",ylab="Phyto C (mg C L-1)",type='l')#
-	plot(out[,1],out[,6]/out[,9]*1000*31,xlab="time",ylab="SRP (ug P L-1)",type='l')
-apply(out,2,range)
-source("nhldWatershedModelSupporting.R")
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)
-dev.new()#
-	par(mfrow=c(2,3))#
-	plot(out[,1],out[,2]/out[,9]*12,xlab="time",ylab="DOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,3]/out[,9]*12,xlab="time",ylab="DIC (mg C L-1)",type='l')#
-	plot(out[,1],out[,4]/out[,9]*12,xlab="time",ylab="tPOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,5]/out[,9]*12,xlab="time",ylab="Phyto C (mg C L-1)",type='l')#
-	plot(out[,1],out[,6]/out[,9]*1000*31,xlab="time",ylab="SRP (ug P L-1)",type='l')#
-	apply(out,2,range)
-source("nhldWatershedModelSupporting.R")
-out<-ode(y=initialX,times=times,func=timeStep,parms=params,curForce=curForce,curForceDOY=curForceDOY)
-dev.new()#
-	par(mfrow=c(2,3))#
-	plot(out[,1],out[,2]/out[,9]*12,xlab="time",ylab="DOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,3]/out[,9]*12,xlab="time",ylab="DIC (mg C L-1)",type='l')#
-	plot(out[,1],out[,4]/out[,9]*12,xlab="time",ylab="tPOC (mg C L-1)",type='l')#
-	plot(out[,1],out[,5]/out[,9]*12,xlab="time",ylab="Phyto C (mg C L-1)",type='l')#
-	plot(out[,1],out[,6]/out[,9]*1000*31,xlab="time",ylab="SRP (ug P L-1)",type='l')#
-	apply(out,2,range)
+plot(as.numeric(names(annualMin)),annualMin-mean(annualMin,na.rm=TRUE),type='o',xlab="year",ylab="min lake level anomaly")#
+abline(h=0,lty=2)
+annualMin
+head(UNDERCsheds)
+for(i in 1:nrow(UNDERCsheds)){#
+	#i=17		#Long Lake from UNDERCsheds#
+	#i=4		#Morris from UNDERCsheds#
+	curLakeID=UNDERCsheds$Permanent_[i]#
+	# current lake and shed parameters#
+	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2#
+	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3#
+	curLakePerim=UNDERCsheds$Perimeter[i]#
+	##### when don't have volume infer from area...#
+	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units#
+	curShedArea=UNDERCsheds$Area_m2[i]	#m2#
+	#gwIn and gwOut#
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]#
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]#
+	if(nrow(curGFLOW)>0){#
+		GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)#
+		GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1#
+		gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		#### these seem too high; for now just divide GW by 60 to make some progress...#
+		gwIn=gwIn/60#
+		gwOut=gwOut/60#
+		stage0=V0/curLakeArea#
+		alpha=0.99#
+		stageOut=alpha*stage0#
+#
+		params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)#
+#
+		initialX=c(V=V0)#
+		times=curFluxDOY#
+		out<-ode(y=initialX,times=times,func=timeStep,parms=params)#
+#
+		stageSim=out[,2]/curLakeArea#
+		C=(2/3)^1.5*9.806^0.5	# m s-2#
+		L=0.5	# m#
+		H=stageSim-stageOut#
+		QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)#
+		annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)#
+		annualMax=tapply(stageSim,curFlux[,3],FUN=max,na.rm=TRUE)#
+#
+		print(c(curLakeID,UNDERCsheds[i,3],round(min(annualMin),2),round(max(annualMax),2)))#
+	}#
+}
+###### iterate through lakes  #
+for(i in 1:nrow(UNDERCsheds)){#
+	#i=17		#Long Lake from UNDERCsheds#
+	#i=4		#Morris from UNDERCsheds#
+	curLakeID=UNDERCsheds$Permanent_[i]#
+	# current lake and shed parameters#
+	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2#
+	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3#
+	curLakePerim=UNDERCsheds$Perimeter[i]#
+	##### when don't have volume infer from area...#
+	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units#
+	curShedArea=UNDERCsheds$Area_m2[i]	#m2#
+	#gwIn and gwOut#
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]#
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]#
+	if(nrow(curGFLOW)>0){#
+		GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)#
+		GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1#
+		gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		#### these seem too high; for now just divide GW by 60 to make some progress...#
+		gwIn=gwIn/60#
+		gwOut=gwOut/60#
+		stage0=V0/curLakeArea#
+		alpha=0.8#
+		stageOut=alpha*stage0#
+#
+		params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)#
+#
+		initialX=c(V=V0)#
+		times=curFluxDOY#
+		out<-ode(y=initialX,times=times,func=timeStep,parms=params)#
+#
+		stageSim=out[,2]/curLakeArea#
+		C=(2/3)^1.5*9.806^0.5	# m s-2#
+		L=0.5	# m#
+		H=stageSim-stageOut#
+		QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)#
+		annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)#
+		annualMax=tapply(stageSim,curFlux[,3],FUN=max,na.rm=TRUE)#
+#
+		print(c(curLakeID,UNDERCsheds[i,3],round(min(annualMin),2),round(max(annualMax),2)))#
+	}#
+}
+rm(list=ls())#
+#
+setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
+#
+########## load utility functions and packages#
+source("nhldWatershedModel_onlyHydroSupporting.R")#
+require(deSolve)#
+require(LakeMetabolizer)#
+#
+######## load forcing and flux data#
+setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/VICforcings&output/PROC")#
+#
+cells=gsub("FLUX_","",grep("FLUX",list.files(),value=TRUE))#
+#
+forceFiles=grep("FORCE",list.files(),value=TRUE)#
+fluxFiles=grep("FLUX",list.files(),value=TRUE)#
+#
+#### UNDERC includes four VIC cells#
+# 46.28125_-89.53125#
+# 46.28125_-89.46875#
+# 46.21875_-89.53125#
+# 46.21875_-89.46875#
+UNDERCcells=cells[c(169,170,182,183)]#
+#
+# Lat Long Year Month Day Runoff_mmDay Precip_mmDay EvapOpenWater_mmDay#
+flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)#
+# Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction#
+force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)#
+#
+# starting year/month/day, ending year/mnth/day, & set up force/flux#
+startYear=2012#
+startMonth=1#
+startDay=1#
+#
+endYear=2012#
+endMonth=12#
+endDay=31#
+#
+curForce=force[which(((force[,3]==startYear) & (force[,4]==startMonth) & (force[,5]==startDay) & (force[,6]==0))):which(((force[,3]==endYear) & (force[,4]==endMonth) & (force[,5]==endDay) & (force[,6]==23))),]#
+#
+curFlux=flux[which(((flux[,3]==startYear) & (flux[,4]==startMonth) & (flux[,5]==startDay))):which(((flux[,3]==endYear) & (flux[,4]==endMonth) & (flux[,5]==endDay))),]#
+#
+curFluxDOY=1:nrow(curFlux)#
+curForceDOY=rep(curFluxDOY,each=24)#
+#
+setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")#
+#
+###### forcing functions#
+dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")#
+dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")#
+dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")#
+#
+####### ice cover: using regressions from Finland ()#
+# -> alternative: try looking at NTL data...; fit model with degree days?#
+#
+###***** this stuff will have troubles if ice on happens after january 1 ******####
+aprilForce=force[force[,4]==4,]#
+novForce=force[force[,4]==11,]#
+#
+aprilAT=tapply(aprilForce[,11],aprilForce[,3],FUN=mean)#
+novAT=tapply(novForce[,11],novForce[3],FUN=mean)#
+#
+iceOnDOY=(novAT+28.8)/0.19+182	#equation for November from inland North -> has latest ice on; pick this one because study area much higher N#
+#
+iceOffDOY=(aprilAT-49.7)/-0.16+182-365	#Coastal/South model for breakup; again earliest date, but want this bias...#
+#
+iceON=numeric(nrow(curFlux))#
+years=sort(unique(curFlux[,3]))#
+for(i in 1:length(years)){#
+	curYear=curFlux[curFlux[,3]==years[i],]#
+	curDOY=as.numeric(strftime(strptime(paste(curYear[,3],curYear[,4],curYear[,5],sep="-"),format="%Y-%m-%d"),format="%j"))#
+	iceON[curFlux[,3]==years[i]]=((curDOY<iceOffDOY[names(iceOffDOY)==years[i]]) | (curDOY>iceOnDOY[names(iceOnDOY)==years[i]]))*1#
+}#
+#
+####### load lake/watershed information#
+UNDERCsheds=read.table("../NHLDwatershedDelineations/UNDERCsheds_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)#
+#
+GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
+for(i in 1:nrow(UNDERCsheds)){#
+	#i=17		#Long Lake from UNDERCsheds#
+	#i=4		#Morris from UNDERCsheds#
+	curLakeID=UNDERCsheds$Permanent_[i]#
+	# current lake and shed parameters#
+	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2#
+	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3#
+	curLakePerim=UNDERCsheds$Perimeter[i]#
+	##### when don't have volume infer from area...#
+	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units#
+	curShedArea=UNDERCsheds$Area_m2[i]	#m2#
+	#gwIn and gwOut#
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]#
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]#
+	if(nrow(curGFLOW)>0){#
+		GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)#
+		GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1#
+		gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		#### these seem too high; for now just divide GW by 60 to make some progress...#
+		gwIn=gwIn/60#
+		gwOut=gwOut/60#
+		stage0=V0/curLakeArea#
+		alpha=0.99#
+		stageOut=alpha*stage0#
+#
+		params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)#
+#
+		initialX=c(V=V0)#
+		times=curFluxDOY#
+		out<-ode(y=initialX,times=times,func=timeStep,parms=params)#
+#
+		stageSim=out[,2]/curLakeArea#
+		C=(2/3)^1.5*9.806^0.5	# m s-2#
+		L=0.5	# m#
+		H=stageSim-stageOut#
+		QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)#
+		annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)#
+		annualMax=tapply(stageSim,curFlux[,3],FUN=max,na.rm=TRUE)#
+#
+		print(c(curLakeID,UNDERCsheds[i,3],round(min(annualMin),2),round(max(annualMax),2)))#
+	}#
+}
+###### iterate through lakes  #
+for(i in 1:nrow(UNDERCsheds)){#
+	#i=17		#Long Lake from UNDERCsheds#
+	#i=4		#Morris from UNDERCsheds#
+	curLakeID=UNDERCsheds$Permanent_[i]#
+	# current lake and shed parameters#
+	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2#
+	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3#
+	curLakePerim=UNDERCsheds$Perimeter[i]#
+	##### when don't have volume infer from area...#
+	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units#
+	curShedArea=UNDERCsheds$Area_m2[i]	#m2#
+	#gwIn and gwOut#
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]#
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]#
+	if(nrow(curGFLOW)>0){#
+		GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)#
+		GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1#
+		gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		#### these seem too high; for now just divide GW by 60 to make some progress...#
+		gwIn=gwIn/60#
+		gwOut=gwOut/60#
+		stage0=V0/curLakeArea#
+		alpha=0.99#
+		stageOut=alpha*stage0#
+#
+		params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)#
+#
+		initialX=c(V=V0)#
+		times=curFluxDOY#
+		out<-ode(y=initialX,times=times,func=timeStep,parms=params)#
+#
+		stageSim=out[,2]/curLakeArea#
+		C=(2/3)^1.5*9.806^0.5	# m s-2#
+		L=0.5	# m#
+		H=stageSim-stageOut#
+		QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)#
+		annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)#
+		annualMax=tapply(stageSim,curFlux[,3],FUN=max,na.rm=TRUE)#
+#
+		print(c(curLakeID,UNDERCsheds[i,3],round(min(annualMin),2),round(max(annualMax),2),out[nrow(out),2]/curLakeArea)#
+	}#
+}
+###### iterate through lakes  #
+for(i in 1:nrow(UNDERCsheds)){#
+	#i=17		#Long Lake from UNDERCsheds#
+	#i=4		#Morris from UNDERCsheds#
+	curLakeID=UNDERCsheds$Permanent_[i]#
+	# current lake and shed parameters#
+	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2#
+	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3#
+	curLakePerim=UNDERCsheds$Perimeter[i]#
+	##### when don't have volume infer from area...#
+	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units#
+	curShedArea=UNDERCsheds$Area_m2[i]	#m2#
+	#gwIn and gwOut#
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]#
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]#
+	if(nrow(curGFLOW)>0){#
+		GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)#
+		GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1#
+		gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		#### these seem too high; for now just divide GW by 60 to make some progress...#
+		gwIn=gwIn/60#
+		gwOut=gwOut/60#
+		stage0=V0/curLakeArea#
+		alpha=0.99#
+		stageOut=alpha*stage0#
+#
+		params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)#
+#
+		initialX=c(V=V0)#
+		times=curFluxDOY#
+		out<-ode(y=initialX,times=times,func=timeStep,parms=params)#
+#
+		stageSim=out[,2]/curLakeArea#
+		C=(2/3)^1.5*9.806^0.5	# m s-2#
+		L=0.5	# m#
+		H=stageSim-stageOut#
+		QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)#
+		annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)#
+		annualMax=tapply(stageSim,curFlux[,3],FUN=max,na.rm=TRUE)#
+#
+		print(c(curLakeID,UNDERCsheds[i,3],round(min(annualMin),2),round(max(annualMax),2),out[nrow(out),2]/curLakeArea))#
+	}#
+}
+###### iterate through lakes  #
+for(i in 1:nrow(UNDERCsheds)){#
+	#i=17		#Long Lake from UNDERCsheds#
+	#i=4		#Morris from UNDERCsheds#
+	curLakeID=UNDERCsheds$Permanent_[i]#
+	# current lake and shed parameters#
+	curLakeArea=UNDERCsheds$NHLD_lakes[i]		#m2#
+	V0=exp(-0.01857+1.11563*log(curLakeArea))#322027.2					#d$lakeVol_m3[i]		#m3#
+	curLakePerim=UNDERCsheds$Perimeter[i]#
+	##### when don't have volume infer from area...#
+	#### for Vilas Cty:  log(volume)=-0.01857+1.11563*log(area)	m^3 and m^2 for units#
+	curShedArea=UNDERCsheds$Area_m2[i]	#m2#
+	#gwIn and gwOut#
+	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]#
+	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]#
+	if(nrow(curGFLOW)>0){#
+		GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)#
+		GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1#
+		gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1#
+		#### these seem too high; for now just divide GW by 60 to make some progress...#
+		gwIn=gwIn/60#
+		gwOut=gwOut/60#
+		stage0=V0/curLakeArea#
+		alpha=0.99#
+		stageOut=alpha*stage0#
+#
+		params=c(curLakeArea=curLakeArea,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)#
+#
+		initialX=c(V=V0)#
+		times=curFluxDOY#
+		out<-ode(y=initialX,times=times,func=timeStep,parms=params)#
+#
+		stageSim=out[,2]/curLakeArea#
+		C=(2/3)^1.5*9.806^0.5	# m s-2#
+		L=0.5	# m#
+		H=stageSim-stageOut#
+		QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)#
+		annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)#
+		annualMax=tapply(stageSim,curFlux[,3],FUN=max,na.rm=TRUE)#
+#
+		print(c(curLakeID,UNDERCsheds[i,3],round(min(annualMin),2),round(max(annualMax),2),out[(nrow(out)-1),2]/curLakeArea))#
+	}#
+}
+exp(-0.01857+1.11563*log(curLakeArea))
+exp(-0.01857+1.11563*log(UNDERCsheds$NHLD_lakes))/UNDERCsheds$NHLD_lakes
+cbind(UNDERCsheds,exp(-0.01857+1.11563*log(UNDERCsheds$NHLD_lakes))/UNDERCsheds$NHLD_lakes#
+)
+cbind(UNDERCsheds[,3],exp(-0.01857+1.11563*log(UNDERCsheds$NHLD_lakes))/UNDERCsheds$NHLD_lakes#
+)
