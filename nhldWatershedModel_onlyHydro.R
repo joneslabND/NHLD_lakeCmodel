@@ -31,7 +31,7 @@ flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)
 force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)
 
 # starting year/month/day, ending year/mnth/day, & set up force/flux
-startYear=1950
+startYear=2012
 startMonth=1
 startDay=1
 
@@ -144,7 +144,10 @@ GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.
 	
 	barplot(meanBudget*c(1,1,1,-1,-1,-1),names.arg=names(meanBudget))
 	
-	
+	avgDailyIn=sum(meanBudget[1:3])
+	avgDailyOut=sum(meanBudget[4:6])
+	# estimate of residence time
+	print(mean(out[,2],na.rm=TRUE)/(mean(c(avgDailyIn,avgDailyOut))))
 	
 annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)
 dev.new()
