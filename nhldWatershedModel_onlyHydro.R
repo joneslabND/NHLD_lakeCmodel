@@ -31,7 +31,7 @@ flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)
 force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)
 
 # starting year/month/day, ending year/mnth/day, & set up force/flux
-startYear=1985
+startYear=2008
 startMonth=1
 startDay=1
 
@@ -101,8 +101,9 @@ DL=Perim0/(2*sqrt(pi*A0))
 #		one fix is to set zmax to something higher than value inferred from zbar and DR...
 #		have to scale both zmax and zbar to maintain DR
 #		after this, I think we can solve for Amax and Vmax and use these to scale Au and Vu appropriately...
-zbar1=zbar0*1.25
-zmax1=zmax0*1.25
+#		5-12-15:  in trying UNDERC lakes Tenderfoot "overflows"  can bump this multiplier from 1.25 to 2.5 -> this changes stage dynamics and model behavior a bit because stage and Area at a given Volume are slightly different
+zbar1=zbar0*2.5#1.25
+zmax1=zmax0*2.5#1.25
 	
 uScale=zmax0/zmax1
 					
@@ -167,11 +168,17 @@ plot(out[,1],out[,2],xlab="time",ylab="Volume (m^3)",type='l',lwd=1)
 plot(out[,1],out[,4],xlab="time",ylab="stage (m)",type='l',lwd=1)
 meanBudget=colMeans(hydroSumm[,-1],na.rm=TRUE)
 barplot(meanBudget*c(1,1,1,-1,-1,-1),names.arg=names(meanBudget))
-	
+
 avgDailyIn=sum(meanBudget[1:3])
 avgDailyOut=sum(meanBudget[4:6])
 # estimate of residence time
 print(mean(out[,2],na.rm=TRUE)/(mean(c(avgDailyIn,avgDailyOut))))
+
+
+timeSeq=strptime(paste(curFlux[,3],curFlux[,4],curFlux[,5],sep="-"),format="%Y-%m-%d")
+dev.new()
+plot(timeSeq,out[,4],type='l',xlab="Date",ylab="stage (m)",lwd=2)
+	
 
 annualMin=tapply(stageSim,curFlux[,3],FUN=min,na.rm=TRUE)
 dev.new()
@@ -201,7 +208,7 @@ abline(h=0,lty=2)
 AREAs=matrix(NA,nrow(curFlux),nrow(UNDERCsheds))
 for(i in 1:nrow(UNDERCsheds)){
 	print(i/nrow(UNDERCsheds))
-curLakeID=UNDERCsheds$Permanent_[i]
+	curLakeID=UNDERCsheds$Permanent_[i]
 	
 	# current lake and shed parameters
 	A0=UNDERCsheds$NHLD_lakes[i]		#m2
@@ -219,8 +226,9 @@ curLakeID=UNDERCsheds$Permanent_[i]
 	#		one fix is to set zmax to something higher than value inferred from zbar and DR...
 	#		have to scale both zmax and zbar to maintain DR
 	#		after this, I think we can solve for Amax and Vmax and use these to scale Au and Vu appropriately...
-	zbar1=zbar0*1.25
-	zmax1=zmax0*1.25
+	#		5-12-15:  in trying UNDERC lakes Tenderfoot "overflows"  can bump this multiplier from 1.25 to 2.5 -> this changes stage dynamics and model behavior a bit because stage and Area at a given Volume are slightly different
+	zbar1=zbar0*2.5#1.25
+	zmax1=zmax0*2.5#1.25
 	
 	uScale=zmax0/zmax1
 					
@@ -237,7 +245,7 @@ curLakeID=UNDERCsheds$Permanent_[i]
 	GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1
 	
 	gwIn0=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
-	gwOut0=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
+	gwOut0=-sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
 	
 	#### these seem too high; for now just divide GW by 60 to make some progress...
 	gwIn0=gwIn0/60
@@ -250,7 +258,6 @@ curLakeID=UNDERCsheds$Permanent_[i]
 	params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,Perim0=Perim0,gwIn0=gwIn0,gwOut0=gwOut0,p=p,DL=DL)
 
 	initialX=c(V=V0)
-	
 	times=curFluxDOY
 	
 	out<-ode(y=initialX,times=times,func=timeStep,parms=params)

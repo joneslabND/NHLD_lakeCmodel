@@ -7,11 +7,12 @@ findU<-function(u,p,Vmax,Vu){
 
 timeStep<-function(t,X,params){
 	with(as.list(params),{
+		
 		#########################
 		#### State variables ####
 		#########################
 		V=X[1]
-		
+
 		u=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=Vmax,Vu=V)$root,4)
 		
 		stage=u*Zmax
