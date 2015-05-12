@@ -88,11 +88,13 @@ GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.
 	# current lake and shed parameters
 	A0=UNDERCsheds$NHLD_lakes[i]		#m2
 	V0=10^(-0.0589+1.12963*log10(A0))		#m3
-	curLakePerim=UNDERCsheds$Perimeter[i]			#******* how to make this dynamic???
+	Perim0=UNDERCsheds$Perimeter[i]			#******* how to make this dynamic???
 	DR=0.45		# going with quadratic because it is simpler and close to 0.5 the two classes are almost identical 
 	p=6*DR-3
 	zbar0=V0/A0
 	zmax0=zbar0/DR
+	
+	DL=Perim0/(2*sqrt(pi*A0))
 	
 	# quadratic function peaks and begins to fall again at u=1...
 	#		problem for when lake rises above zmax0
@@ -111,23 +113,23 @@ GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.
 
 	u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=V0)$root,4)
 	
-	#gwIn and gwOut		********* NEEDS TO MOVE TO SUPPORTING BECAUSE IS DYNAMIC WITH PERIMETER???
 	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]
 	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]
 	GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)
 	GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1
-	gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1
-	gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1
-		
-	#### these seem too high; for now just divide GW by 60 to make some progress...
-	gwIn=gwIn/60
-	gwOut=gwOut/60
 	
+	gwIn0=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
+	gwOut0=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
+	
+	#### these seem too high; for now just divide GW by 60 to make some progress...
+	gwIn0=gwIn0/60
+	gwOut0=gwOut0/60
+		
 	stage0=u0*zmax1
 	alpha=0.8
 	stageOut=alpha*stage0
 
-	params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut,p=p)
+	params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,Perim0=Perim0,gwIn0=gwIn0,gwOut0=gwOut0,p=p,DL=DL)
 
 	initialX=c(V=V0)
 	
@@ -136,22 +138,23 @@ GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.
 	out<-ode(y=initialX,times=times,func=timeStep,parms=params)
 
 
-	out=cbind(out,NA,NA)
+	out=cbind(out,NA,NA,NA)
 	for(j in 1:nrow(out)){
 		if(!is.na(out[j,2])){
 			uj=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=out[j,2])$root,4)
 			out[j,3]=A1*(p*uj^2+(1-p)*uj)
 			out[j,4]=zmax1*uj
+			out[j,5]=2*pi*sqrt(out[j,3]/pi)*DL
 		}
 	}
-	colnames(out)[3:4]=c("A","stage")
+	colnames(out)[3:5]=c("A","stage","perim")
 
 	C=(2/3)^1.5*9.806^0.5	# m s-2
 	L=0.001	# m
 	H=out[,4]-stageOut
 	QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)
 	
-	hydroSumm=cbind(out[,1],dailyRunoff(out[,1])*(curShedArea-out[,3])/1000,dailyPrecip(out[,1])*out[,3]/1000,rep(gwIn,length(out[,1])),QoutSim,dailyEvap(out[,1])*out[,3]/1000*(1-iceON[1:nrow(out)]),rep(gwOut,length(out[,1])))
+	hydroSumm=cbind(out[,1],dailyRunoff(out[,1])*(curShedArea-out[,3])/1000,dailyPrecip(out[,1])*out[,3]/1000,gwIn0*out[,5]/Perim0,QoutSim,dailyEvap(out[,1])*out[,3]/1000*(1-iceON[1:nrow(out)]),gwOut0*out[,5]/Perim0)
 	colnames(hydroSumm)=c("time","Qin","precip","GWin","Qout","evap","GWout")
 
 	dev.new()
@@ -184,16 +187,18 @@ abline(h=0,lty=2)
 AREAs=matrix(NA,nrow(curFlux),nrow(UNDERCsheds))
 for(i in 1:nrow(UNDERCsheds)){
 	print(i/nrow(UNDERCsheds))
-	curLakeID=UNDERCsheds$Permanent_[i]
+curLakeID=UNDERCsheds$Permanent_[i]
 	
 	# current lake and shed parameters
 	A0=UNDERCsheds$NHLD_lakes[i]		#m2
 	V0=10^(-0.0589+1.12963*log10(A0))		#m3
-	curLakePerim=UNDERCsheds$Perimeter[i]			#******* how to make this dynamic???
+	Perim0=UNDERCsheds$Perimeter[i]			#******* how to make this dynamic???
 	DR=0.45		# going with quadratic because it is simpler and close to 0.5 the two classes are almost identical 
 	p=6*DR-3
 	zbar0=V0/A0
 	zmax0=zbar0/DR
+	
+	DL=Perim0/(2*sqrt(pi*A0))
 	
 	# quadratic function peaks and begins to fall again at u=1...
 	#		problem for when lake rises above zmax0
@@ -212,23 +217,23 @@ for(i in 1:nrow(UNDERCsheds)){
 
 	u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=V0)$root,4)
 	
-	#gwIn and gwOut
 	curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]
 	curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]
 	GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)
 	GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1
-	gwIn=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1
-	gwOut=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*curLakePerim)*0.0283168	#m3 d-1
-		
-	#### these seem too high; for now just divide GW by 60 to make some progress...
-	gwIn=gwIn/60
-	gwOut=gwOut/60
 	
+	gwIn0=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
+	gwOut0=sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
+	
+	#### these seem too high; for now just divide GW by 60 to make some progress...
+	gwIn0=gwIn0/60
+	gwOut0=gwOut0/60
+		
 	stage0=u0*zmax1
-	alpha=0.99
+	alpha=0.8
 	stageOut=alpha*stage0
 
-	params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,gwIn=gwIn,gwOut=gwOut)
+	params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,Perim0=Perim0,gwIn0=gwIn0,gwOut0=gwOut0,p=p,DL=DL)
 
 	initialX=c(V=V0)
 	
@@ -236,15 +241,16 @@ for(i in 1:nrow(UNDERCsheds)){
 	
 	out<-ode(y=initialX,times=times,func=timeStep,parms=params)
 
-	out=cbind(out,NA,NA)
+	out=cbind(out,NA,NA,NA)
 	for(j in 1:nrow(out)){
 		if(!is.na(out[j,2])){
 			uj=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=out[j,2])$root,4)
-			out[j,3]=A1*uj
+			out[j,3]=A1*(p*uj^2+(1-p)*uj)
 			out[j,4]=zmax1*uj
+			out[j,5]=2*pi*sqrt(out[j,3]/pi)*DL
 		}
 	}
-	colnames(out)[3:4]=c("A","stage")
+	colnames(out)[3:5]=c("A","stage","perim")
 	
 	AREAs[,i]=out[,3]
 }

@@ -7,7 +7,6 @@ findU<-function(u,p,Vmax,Vu){
 
 timeStep<-function(t,X,params){
 	with(as.list(params),{
-			
 		#########################
 		#### State variables ####
 		#########################
@@ -18,7 +17,10 @@ timeStep<-function(t,X,params){
 		stage=u*Zmax
 		A=Amax*(p*u^2+(1-p)*u)
 		
-		#curDayString=paste(curFlux[i,3],curFlux[i,4],curFlux[i,5],sep="_")
+		perim=2*pi*sqrt(A/pi)*DL
+
+		gwIn=gwIn0*perim/Perim0	#m3 d-1
+		gwOut=gwOut0*perim/Perim0	#m3 d-1
 				
 		# because we are accounting for direct precip isn't this the snow on ice? 
 		# I guess we could "store" that precip until spring...
