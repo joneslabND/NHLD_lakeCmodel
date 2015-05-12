@@ -22,10 +22,10 @@ timeStep<-function(t,X,params){
 		gwIn=gwIn0*perim/Perim0	#m3 d-1
 		gwOut=gwOut0*perim/Perim0	#m3 d-1
 				
-		# because we are accounting for direct precip isn't this the snow on ice? 
-		# I guess we could "store" that precip until spring...
 		streamQ=dailyRunoff(t)*(curShedArea-A)/1000			#m3 day-1	****** problem because of interpolating?
 		directPrecip=dailyPrecip(t)*A/1000		#m3 day-1	****** problem because of interpolating?
+		
+		# a bit funny how dealing with cummulative winter precip, but I think this works out right; goal is for winter precip that would fall on ice to be stored and then go into the lake on the first day of ice out...
 		
 		if(iceON[floor(t)]==1){
 			curEvap=0	#m3
@@ -40,7 +40,7 @@ timeStep<-function(t,X,params){
 		# L = spillway length [m]; call this 2-5 m?
 		# H = head (difference between spillway height and reservoir stage) [m]
 		C=(2/3)^1.5*9.806^0.5	
-		L=0.005#0.25	# m
+		L=0.1#0.25	# m
 		if((stage-stageOut)>0){
 			H=stage-stageOut
 			Q=C*L*H^1.5	#m3 s-1
