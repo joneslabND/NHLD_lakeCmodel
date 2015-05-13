@@ -1,4 +1,94 @@
-#vilasWatershedModel_5-17-14.R supportin functions
+#nhldWatershedModelSupporting.R supporting functions
+
+findU<-function(u,p,Vmax,Vu){
+	((6*u-3*(1-p)*u^2-2*p*u^3)/(3+p))*Vmax-Vu
+} 
+
+
+timeStep<-function(t,X,params){
+	with(as.list(params),{
+		
+		#########################
+		#### State variables ####
+		#########################
+		V=X[1]
+		DIC=X[2]
+		DOC=X[3]
+
+		u=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=Vmax,Vu=V)$root,4)
+		
+		stage=u*Zmax
+		A=Amax*(p*u^2+(1-p)*u)
+		
+		perim=2*pi*sqrt(A/pi)*DL
+
+		gwIn=gwIn0*perim/Perim0	#m3 d-1
+		gwOut=gwOut0*perim/Perim0	#m3 d-1
+				
+		streamQ=dailyRunoff(t)*(curShedArea-A)/1000			#m3 day-1	****** problem because of interpolating?
+		directPrecip=dailyPrecip(t)*A/1000		#m3 day-1	****** problem because of interpolating?
+		
+		# a bit funny how dealing with cummulative winter precip, but I think this works out right; goal is for winter precip that would fall on ice to be stored and then go into the lake on the first day of ice out...
+		
+		if(iceON[floor(t)]==1){
+			curEvap=0	#m3
+		}else{
+			curEvap=dailyEvap(t)*A/1000			#m3 day-1	
+		}
+		
+		# assuming ogee crest spillway
+		# Q=C*L*H^(3/2), where:
+		# Q = discharge [m3 s-1]
+		# C = coefficient; (2/3)^1.5*g^0.5 [m^(1/2) s-1]; g = gravitational constant; 9.806 [m s-2]
+		# L = spillway length [m]; call this 2-5 m?
+		# H = head (difference between spillway height and reservoir stage) [m]
+		C=(2/3)^1.5*9.806^0.5	
+		L=0.1#0.25	# m
+		if((stage-stageOut)>0){
+			H=stage-stageOut
+			Q=C*L*H^1.5	#m3 s-1
+			STout=Q*60*60*24		#m3 day-1
+		}else{
+			STout=0		#m3 day-1
+		}
+
+		# C biogeochemistry
+		photoOx=0#	******* THIS IS TURNED OFF RIGHT NOW!!!!!! 44/1000/12 	# photooxidation rate constant, [mol c m-2 day-1]; Graneli et al. 1996, L&O, 41: 698-706
+		floc=0#0.005		# fraction of DOC that floculates, [day-1]; von Wachenfeldt & Tranvik 2008 via Jones et al. 2012
+		DOCrespired=0.005 # fraction of DOC that is respired, [day-1]; Houser et al. 2001 via Hanson et al. 2004
+
+		# epilimnion vs. hypolimion ---> deal with this soon!!!!!
+		#zmix=10^(-0.518*log10(DOC/(V*1000)*12*1000)+1.006)	#****** NEED TO MAKE SURE THE DOC UNITS ARE RIGHT HERE...	#fuentetaja et al. 1999
+
+#		if(zmix>Zmax){
+#			zmix=Zmax
+#		}
+
+		#hypoVolume<<-A*(curMeanDepth-zmix)	# m3
+
+		atmCO2=400 # [ppm]
+		atmEquilCO2=1*atmCO2/1e6/kH*1000	# concentration of CO2 in water at equilibrium with atmosphere, [mol C m-3]
+		kCur=0.5 	# current piston velocity, using Jordan Read/GLEON model eventually
+		# should be function of area...
+		
+		################################
+		#### Differential equations ####
+		################################
+
+		dV.dt=(streamQ+directPrecip+gwIn)-(STout+curEvap+gwOut)	#[m3]
+				
+		dDIC.dt=streamQ*streamDIC+directPrecip*precipDIC+gwIn*gwDIC-STout*DIC/V-gwOut*DIC/V+photoOx*A+DOCrespired*DOC+kCur*(atmEquilCO2-DIC/V)*A	#[mol C]
+
+		dDOC.dt=streamQ*streamDOC+directPrecip*precipDOC+gwIn*gwDOC-STout*DOC/V-gwOut*DOC/V-photoOx*A-floc*DOC-DOCrespired*DOC	#[mol C]
+
+		list(c(dV.dt,dDIC.dt,dDOC.dt))
+	})
+
+}
+
+
+#### OLD support functions that will be used eventually...
+
 
 #light attenuation
 lightAtten<-function(z,I0,kD){
@@ -51,11 +141,11 @@ dailyGPP<-function(day,curForce,curForceDOY,Phyto,SRP,DOC,V,zmix){
 
 
 
-
+###### relic code from original equilibrium model
 
 
 # lake process model
-timeStep<-function(t,X,params,curForce,curForceDOY){
+timeStepOLD<-function(t,X,params,curForce,curForceDOY){
 	with(as.list(params),{
 		
 		print(t)
