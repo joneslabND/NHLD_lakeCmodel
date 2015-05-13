@@ -84,7 +84,7 @@ for(j in 1:length(years)){
 }
 
 ####### load lake/watershed information
-UNDERCsheds=read.table("../NHLDwatershedDelineations/UNDERCsheds_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
+UNDERCsheds=read.table("../NHLDwatershedDelineations/UNDERCsheds_5-13-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
 
 GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
 
@@ -96,6 +96,9 @@ curLakeID=UNDERCsheds$Permanent_[i]
 # current lake and shed parameters
 A0=UNDERCsheds$NHLD_lakes[i]		#m2
 V0=10^(-0.0589+1.12963*log10(A0))		#m3
+
+# try volume model from del Giorgio group now that we have difference in elevation data
+
 Perim0=UNDERCsheds$Perimeter[i]			#******* how to make this dynamic???
 DR=0.45		# going with quadratic because it is simpler and close to 0.5 the two classes are almost identical 
 p=6*DR-3
@@ -146,7 +149,7 @@ ntlGW=ntlGW[!is.na(ntlGW[,5]),]
 ntlGW=ntlGW[ntlGW$doc<10,]
 lottig2011DOC=read.table("lottig2012Fig.txt",header=FALSE,sep=",")
 kH=29.41	# Henry's Law constant for CO2 in water [L atm mol-1]	# temperature sensitivity
-streamDOC=exp(1.3961+3.245*0.15)/12*1000/1000 #exp(1.3961+3.245*d$wetland)/12*1000/1000	# from lottig 2012; mol m-3
+streamDOC=exp(1.3961+3.245*(UNDERCsheds$percentWetland[i]/100))/12*1000/1000	# from lottig 2012; mol m-3
 #streamPOC=3/12*1000/1000		# ~3 mg L-1; buffam 2011; mol m-3
 streamDIC=10/12*1000/1000		#10 mg L-1; lottig 2011; mol m-3
 #streamP=0.04/31*1000/1000		#.025 mg L-1 TDP & 0.04 mg L-1 TP; lottig 2011; mol m-3
