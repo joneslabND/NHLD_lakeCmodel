@@ -6,7 +6,7 @@ rm(list=ls())
 setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
 
 ########## load utility functions and packages
-source("nhldWatershedModel_onlyHydroSupporting.R")
+source("nhldWatershedModel_onlyHydro_dynRechargeSupporting.R")
 require(deSolve)
 require(LakeMetabolizer)
 
@@ -30,8 +30,12 @@ flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)
 # Lat Long Year Month Day Hour NetLW_Wm2 NetSW_Wm2 LW_Wm2 SW_Wm2 AirTemp_dC atmPress_kPa windspeed_mS@10m relHumid_fraction
 force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)
 
+setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
+# Year Month Day NetRecharge_mmDay
+recharge=read.table("meanRechargeTS.txt",header=FALSE,sep="\t",stringsAsFactors=FALSE)
+
 # starting year/month/day, ending year/mnth/day, & set up force/flux
-startYear=1985
+startYear=2000
 startMonth=1
 startDay=1
 
@@ -43,10 +47,10 @@ curForce=force[which(((force[,3]==startYear) & (force[,4]==startMonth) & (force[
 
 curFlux=flux[which(((flux[,3]==startYear) & (flux[,4]==startMonth) & (flux[,5]==startDay))):which(((flux[,3]==endYear) & (flux[,4]==endMonth) & (flux[,5]==endDay))),]
 
+curRecharge=recharge[which(((recharge[,1]==startYear) & (recharge[,2]==startMonth) & (recharge[,3]==startDay))):which(((recharge[,1]==endYear) & (recharge[,2]==endMonth) & (recharge[,3]==endDay))),]
+
 curFluxDOY=1:nrow(curFlux)
 curForceDOY=rep(curFluxDOY,each=24)
-
-setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
 
 ###### forcing functions
 dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")
@@ -78,22 +82,11 @@ for(j in 1:length(years)){
 ####### load lake/watershed information
 UNDERCsheds=read.table("../NHLDwatershedDelineations/UNDERCsheds_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
 
-#GFLOWoutput=read.table("../gflowOutput/GFLOWperElementDischarge_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
-#GFLOWoutput=read.table("../gflowOutput/gflowKsensitivity_5-17-15/NHLD_GFLOW_UNDERC_RegK10_LocK5_OutputLong.txt",header=TRUE,stringsAsFactors=FALSE)
-colnames(GFLOWoutput)[1]="Permanent_"
 GFLOWoutput=read.table("../gflowOutput/gflowSensitivity_5-21-15/NHLD_GFLOW_UNDERC_20150520_Simplify010_RegK1_LocK0pt01_OutputLong.txt",header=TRUE,stringsAsFactors=FALSE)
 colnames(GFLOWoutput)[1]="Permanent_"
 
-###### sensitivity of regional K (assuming local K is 0.5*RegK)
-# regK=10 and regK=5 drew Long Lake stage waaaaay down and GW discharge exceeded losses to Evap
-# regK=1 seems more plausible, but it appears to generate a gaining line sink...
-# regK=0.1 makes the lake a gainer and no loss line sinks
-
-##### sensitivity of local K (holding regional K at 1)
-# locK=0.1 budget looks good, but get some of the tendency to return to "equilibrium" stage that we didn't see previously
-#		force gwIn0 to 0 (was 0.73 m3 day-1), and doesn't change much...
-# locK=0.01 
-# locK=0.001
+gwIn_fRecharge=read.table("gwIn_fRecharge.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
+gwOut_fRecharge=read.table("gwOut_fRecharge.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
 
 #i=17		#Long Lake from UNDERCsheds
 #i=4		#Morris from UNDERCsheds
@@ -129,28 +122,31 @@ curShedArea=UNDERCsheds$Area_m2[i]	#m2
 
 u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=V0)$root,4)
 	
-curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]
-curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]
-GFLOWpropPerim=curGFLOW$Linesink_Length_Output/sum(curGFLOW$Linesink_Length_Output)
-GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1
-	
-gwIn0=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
-gwOut0=-sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
-	
-#### these seem too high; for now just divide GW by 60 to make some progress...
-#gwIn0=gwIn0/60
-#gwOut0=gwOut0/60
+curgwCoefIn=gwIn_fRecharge[gwIn_fRecharge[,1]==curLakeID,]
+curgwCoefOut=gwOut_fRecharge[gwOut_fRecharge[,1]==curLakeID,]
+
+gwIn0=(curRecharge[,4]*curgwCoefIn[1,4]+curgwCoefIn[1,3])*0.0283168	#m3 d-1
+gwOut0=(curRecharge[,4]*curgwCoefOut[1,4]+curgwCoefOut[1,3])*0.0283168	#m3 d-1
+
+gwIn0[curRecharge[,4]<=curgwCoefIn[1,2]]=0
+gwOut0[curRecharge[,4]>=curgwCoefOut[1,2]]=0
+
+gwIn0[gwIn0<0]=0
+gwOut0[gwOut0<0]=0
+
+daily_gwIn0=approxfun(curFluxDOY,gwIn0,method="constant")
+daily_gwOut0=approxfun(curFluxDOY,gwOut0,method="constant")
 		
 stage0=u0*zmax1
 alpha=0.8
 stageOut=alpha*stage0
 
-params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,Perim0=Perim0,gwIn0=gwIn0,gwOut0=gwOut0,p=p,DL=DL)
+params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,Perim0=Perim0,ip=p,DL=DL)
 
 initialX=c(V=V0)
 times=curFluxDOY
 	
-out<-ode(y=initialX,times=times,func=timeStep,parms=params)
+out<-ode(y=initialX,times=times,func=timeStep,parms=params,method="rk4")
 
 out=cbind(out,NA,NA,NA)
 for(j in 1:nrow(out)){
@@ -168,7 +164,7 @@ L=0.1	# m
 H=out[,4]-stageOut
 QoutSim=ifelse(H>0,(C*L*H^1.5)*(60*60*24),0)
 	
-hydroSumm=cbind(out[,1],dailyRunoff(out[,1])*(curShedArea-out[,3])/1000,dailyPrecip(out[,1])*out[,3]/1000,gwIn0*out[,5]/Perim0,QoutSim,dailyEvap(out[,1])*out[,3]/1000*(1-iceON[1:nrow(out)]),gwOut0*out[,5]/Perim0)
+hydroSumm=cbind(out[,1],dailyRunoff(out[,1])*(curShedArea-out[,3])/1000,dailyPrecip(out[,1])*out[,3]/1000,daily_gwIn0(out[,1])*out[,5]/Perim0,QoutSim,dailyEvap(out[,1])*out[,3]/1000*(1-iceON[1:nrow(out)]),daily_gwOut0(out[,1])*out[,5]/Perim0)
 colnames(hydroSumm)=c("time","Qin","precip","GWin","Qout","evap","GWout")
 
 dev.new()

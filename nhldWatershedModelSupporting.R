@@ -28,8 +28,6 @@ timeStep<-function(t,X,params){
 		streamQ=dailyRunoff(t)*(curShedArea-A)/1000			#m3 day-1	****** problem because of interpolating?
 		directPrecip=dailyPrecip(t)*A/1000		#m3 day-1	****** problem because of interpolating?
 		
-		# a bit funny how dealing with cummulative winter precip, but I think this works out right; goal is for winter precip that would fall on ice to be stored and then go into the lake on the first day of ice out...
-		
 		if(iceON[floor(t)]==1){
 			curEvap=0	#m3
 		}else{

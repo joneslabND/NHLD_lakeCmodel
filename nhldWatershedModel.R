@@ -86,7 +86,8 @@ for(j in 1:length(years)){
 ####### load lake/watershed information
 UNDERCsheds=read.table("../NHLDwatershedDelineations/UNDERCsheds_5-13-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
 
-GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
+GFLOWoutput=read.table("../gflowOutput/gflowSensitivity_5-21-15/NHLD_GFLOW_UNDERC_20150520_Simplify010_RegK1_LocK0pt01_OutputLong.txt",header=TRUE,stringsAsFactors=FALSE)
+colnames(GFLOWoutput)[1]="Permanent_"
 
 #i=17		#Long Lake from UNDERCsheds
 #i=4		#Morris from UNDERCsheds
@@ -94,12 +95,12 @@ GFLOWoutput=read.table("../gflowOutput_3-24-15/GFLOWperElementDischarge_4-24-15.
 curLakeID=UNDERCsheds$Permanent_[i]
 	
 # current lake and shed parameters
-A0=UNDERCsheds$NHLD_lakes[i]		#m2
+A0=UNDERCsheds$NHLD_lakes[UNDERCsheds$Permanent_==curLakeID]		#m2
 V0=10^(-0.0589+1.12963*log10(A0))		#m3
 
 # try volume model from del Giorgio group now that we have difference in elevation data
 
-Perim0=UNDERCsheds$Perimeter[i]			#******* how to make this dynamic???
+Perim0=UNDERCsheds$Perimeter[UNDERCsheds$Permanent_==curLakeID]			
 DR=0.45		# going with quadratic because it is simpler and close to 0.5 the two classes are almost identical 
 p=6*DR-3
 zbar0=V0/A0
@@ -113,15 +114,15 @@ DL=Perim0/(2*sqrt(pi*A0))
 #		have to scale both zmax and zbar to maintain DR
 #		after this, I think we can solve for Amax and Vmax and use these to scale Au and Vu appropriately...
 #		5-12-15:  in trying UNDERC lakes Tenderfoot "overflows"  can bump this multiplier from 1.25 to 2.5 -> this changes stage dynamics and model behavior a bit because stage and Area at a given Volume are slightly different
-zbar1=zbar0*2.5#1.25
-zmax1=zmax0*2.5#1.25
+zbar1=zbar0*2.5
+zmax1=zmax0*2.5
 	
 uScale=zmax0/zmax1
 					
 A1=A0/(p*uScale^2+(1-p)*uScale)
 V1=V0/((6*uScale-3*(1-p)*uScale^2-2*p*uScale^3)/(3+p))
 					
-curShedArea=UNDERCsheds$Area_m2[i]	#m2
+curShedArea=UNDERCsheds$Area_m2[UNDERCsheds$Permanent_==curLakeID]	#m2
 
 u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=V0)$root,4)
 	
@@ -132,13 +133,9 @@ GFLOWin=(curGFLOW$Linesink_PerLengthDischarge_Output>0)*1
 	
 gwIn0=sum(GFLOWin*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
 gwOut0=-sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPerim*Perim0)*0.0283168	#m3 d-1
-	
-#### these seem too high; for now just divide GW by 60 to make some progress...
-gwIn0=gwIn0/60
-gwOut0=gwOut0/60
-		
+			
 stage0=u0*zmax1
-alpha=0.8
+alpha=1.05#0.8
 stageOut=alpha*stage0
 
 # calculate concentrations of DIC, DOC, TP based on landcover
