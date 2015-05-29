@@ -31,7 +31,7 @@ flux=read.table(paste("FLUX_",UNDERCcells[1],sep=""),header=FALSE)
 force=read.table(paste("FORCE_",UNDERCcells[1],sep=""),header=FALSE)
 
 # starting year/month/day, ending year/mnth/day, & set up force/flux
-startYear=1985
+startYear=2005
 startMonth=1
 startDay=1
 
@@ -52,6 +52,7 @@ setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
 dailyPrecip=approxfun(curFluxDOY,curFlux[,7],method="constant")
 dailyEvap=approxfun(curFluxDOY,curFlux[,8],method="constant")
 dailyRunoff=approxfun(curFluxDOY,curFlux[,6],method="constant")
+dailyWind=approxfun(curFluxDOY,tapply(curForce[,13],curForceDOY,FUN=mean),method="constant")
 dailySun<-function(day){
 	todayHourlySun=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...
 	return(todayHourlySun)
@@ -150,10 +151,10 @@ streamDOC=exp(1.3961+3.245*(UNDERCsheds$percentWetland[i]/100))/12*1000/1000	# f
 #streamPOC=3/12*1000/1000		# ~3 mg L-1; buffam 2011; mol m-3
 streamDIC=10/12*1000/1000		#10 mg L-1; lottig 2011; mol m-3
 #streamP=0.04/31*1000/1000		#.025 mg L-1 TDP & 0.04 mg L-1 TP; lottig 2011; mol m-3
-gwDOC=median(ntlGW$doc,na.rm=TRUE)/12*1000/1000	# mol m-3
+gwDOC=13/12*1000/1000#median(ntlGW$doc,na.rm=TRUE)/12*1000/1000	# mol m-3
 gwDIC=median(ntlGW$dic,na.rm=TRUE)/12*1000/1000	# mol m-3
 #gwP=median(ntlGW$totp,na.rm=TRUE)/31*1000/1e6		# mol m-3
-precipDOC=1.1/12*1000/1000		#mol m-3; from Likens et al. 1983 @ Hubbard Brook
+precipDOC=3.2/12*1000/1000#1.1/12*1000/1000		#mol m-3; from Likens et al. 1983 @ Hubbard Brook
 precipDIC=400/1e6*1/kH*1000	# mol C m-3; assumed in equilibrium with atmosphere
 #precipP=0.01/31*1000/1000	# mol m-3; Murphy & DOskey 1976 JGLR
 	
@@ -175,7 +176,7 @@ initialX=c(V=V0,DIC=0.3/12*V0,DOC=8/12*V0)
 
 times=curFluxDOY
 	
-out<-ode(y=initialX,times=times,func=timeStep,parms=params)
+out<-ode(y=initialX,times=times,func=timeStep,parms=params,method="rk4")
 out=out[-(1:5),]		# always drops a lot over first few days
 out=out[-nrow(out),]		# last time step always NA
 
@@ -225,10 +226,15 @@ outConc=out
 outConc[,3]=outConc[,3]/outConc[,2]*12		#mg L-1
 outConc[,4]=outConc[,4]/outConc[,2]*12		#mg L-1
 
+atmCO2=400 # [ppm]
+		atmEquilCO2=1*atmCO2/1e6/kH*1000	# concentration of CO2 in water at equilibrium with atmosphere, [mol C m-3]
+
+
 dev.new()
 par(mfrow=c(2,2))
 plot(plotDates,out[,2],type='l',xlab='time',ylab='Volume (m3)')
 plot(plotDates,outConc[,3],type='l',xlab='time',ylab='DIC (mg C L-1)')
+abline(h=atmEquilCO2*12,col='red')
 plot(plotDates,outConc[,4],type='l',xlab='time',ylab='DOC (mg C L-1)')
 
 apply(outConc,2,range)

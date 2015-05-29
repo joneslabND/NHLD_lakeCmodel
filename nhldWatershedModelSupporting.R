@@ -28,10 +28,16 @@ timeStep<-function(t,X,params){
 		streamQ=dailyRunoff(t)*(curShedArea-A)/1000			#m3 day-1	****** problem because of interpolating?
 		directPrecip=dailyPrecip(t)*A/1000		#m3 day-1	****** problem because of interpolating?
 		
+		U10=dailyWind(t)
+		
 		if(iceON[floor(t)]==1){
 			curEvap=0	#m3
+			kCur=0		#m day-1
+			DOCrespired=0.0005 # fraction of DOC that is respired, [day-1]; low for temperature effect
 		}else{
 			curEvap=dailyEvap(t)*A/1000			#m3 day-1	
+			kCur=(2.51+1.48*U10+0.39*U10*log10(A))*24/100	#m day-1 from Vachon & Prairie 2013
+			DOCrespired=0.002 # fraction of DOC that is respired, [day-1]; warmer than under ice, but still below 0.005 because of spring/fall
 		}
 		
 		# assuming ogee crest spillway
@@ -52,8 +58,8 @@ timeStep<-function(t,X,params){
 
 		# C biogeochemistry
 		photoOx=0#	******* THIS IS TURNED OFF RIGHT NOW!!!!!! 44/1000/12 	# photooxidation rate constant, [mol c m-2 day-1]; Graneli et al. 1996, L&O, 41: 698-706
-		floc=0#0.005		# fraction of DOC that floculates, [day-1]; von Wachenfeldt & Tranvik 2008 via Jones et al. 2012
-		DOCrespired=0.005 # fraction of DOC that is respired, [day-1]; Houser et al. 2001 via Hanson et al. 2004
+		floc=0.#0.005		# fraction of DOC that floculates, [day-1]; von Wachenfeldt & Tranvik 2008 via Jones et al. 2012
+		#DOCrespired=0.001#0.005 # fraction of DOC that is respired, [day-1]; Houser et al. 2001 via Hanson et al. 2004
 
 		# epilimnion vs. hypolimion ---> deal with this soon!!!!!
 		#zmix=10^(-0.518*log10(DOC/(V*1000)*12*1000)+1.006)	#****** NEED TO MAKE SURE THE DOC UNITS ARE RIGHT HERE...	#fuentetaja et al. 1999
@@ -66,8 +72,7 @@ timeStep<-function(t,X,params){
 
 		atmCO2=400 # [ppm]
 		atmEquilCO2=1*atmCO2/1e6/kH*1000	# concentration of CO2 in water at equilibrium with atmosphere, [mol C m-3]
-		kCur=0.5 	# current piston velocity, using Jordan Read/GLEON model eventually
-		# should be function of area...
+	
 		
 		################################
 		#### Differential equations ####

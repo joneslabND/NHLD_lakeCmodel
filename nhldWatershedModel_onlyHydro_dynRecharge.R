@@ -94,9 +94,9 @@ gwOut_fRecharge=read.table("gwOut_fRecharge.txt",header=TRUE,sep="\t",stringsAsF
 curLakeID=UNDERCsheds$Permanent_[i]
 	
 # current lake and shed parameters
-A0=UNDERCsheds$NHLD_lakes[i]		#m2
+A0=UNDERCsheds$NHLD_lakes[UNDERCsheds$Permanent_==curLakeID]		#m2
 V0=10^(-0.0589+1.12963*log10(A0))		#m3
-Perim0=UNDERCsheds$Perimeter[i]			#******* how to make this dynamic???
+Perim0=UNDERCsheds$Perimeter[UNDERCsheds$Permanent_==curLakeID]			#******* how to make this dynamic???
 DR=0.45		# going with quadratic because it is simpler and close to 0.5 the two classes are almost identical 
 p=6*DR-3
 zbar0=V0/A0
@@ -118,7 +118,7 @@ uScale=zmax0/zmax1
 A1=A0/(p*uScale^2+(1-p)*uScale)
 V1=V0/((6*uScale-3*(1-p)*uScale^2-2*p*uScale^3)/(3+p))
 					
-curShedArea=UNDERCsheds$Area_m2[i]	#m2
+curShedArea=UNDERCsheds$Area_m2[UNDERCsheds$Permanent_==curLakeID]	#m2
 
 u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=V0)$root,4)
 	
@@ -138,7 +138,7 @@ daily_gwIn0=approxfun(curFluxDOY,gwIn0,method="constant")
 daily_gwOut0=approxfun(curFluxDOY,gwOut0,method="constant")
 		
 stage0=u0*zmax1
-alpha=0.8
+alpha=0.99
 stageOut=alpha*stage0
 
 params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,Perim0=Perim0,ip=p,DL=DL)
