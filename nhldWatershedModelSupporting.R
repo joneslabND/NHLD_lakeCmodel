@@ -4,6 +4,50 @@ findU<-function(u,p,Vmax,Vu){
 	((6*u-3*(1-p)*u^2-2*p*u^3)/(3+p))*Vmax-Vu
 } 
 
+#light attenuation
+lightAtten<-function(z,I0,kD){
+	Iz=I0*exp(-kD*z)
+	return(Iz)
+}
+lightAttenTS<-function(I0,kD,zmix){
+	avgI=numeric(length(I0))
+	for(i in 1:length(avgI)){
+		avgI[i]=integrate(lightAtten,0,zmix,I0=I0[i],kD=kD)$value/zmix
+	}
+	return(avgI)
+}
+
+# dailyGPP based on hourly light, etc.
+dailyGPP<-function(day,curForce,curForceDOY,chlCur,SRP,DOC,V,kD,zmix){
+	hourlyPAR=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...
+
+	#### trying different GPP formulation
+	PPmax=20#3.1#2.2		# hr-1
+	kSRP=0.3/1000#0.25/1000/31#0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)
+	Ik=180 		# light limitation benchmark for GPP, [umol cm-2 s-1]; Vadeboncoeur et al. 2008
+			
+	avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
+	GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
+	
+	return(GPP)
+}
+
+# atmospheric deposition
+depWithDist<-function(distShore,precip,maxWind){
+	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1
+	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1
+	
+	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1
+	return(tPOCdep)
+}
+
+# daily tPOC deposition based on Preston et al.
+dailyTPOCdep<-function(day,curLakeArea,curForce,curForceDOY){
+	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition
+
+	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(day),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1
+	return(tPOCdepTotal)
+}
 
 timeStep<-function(t,X,params){
 	with(as.list(params),{
@@ -14,13 +58,25 @@ timeStep<-function(t,X,params){
 		V=X[1]
 		DIC=X[2]
 		DOC=X[3]
+		tPOC=X[4]
+		phyto=X[5]
+		P=X[6]
 
-		u=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=Vmax,Vu=V)$root,4)
+		u=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=Vmax,Vu=(Vmax-V))$root,4)
 		
-		stage=u*Zmax
-		A=Amax*(p*u^2+(1-p)*u)
+		stage=Zmax-u*Zmax
+		A=Amax*(1-(p*u^2+(1-p)*u))
 		
 		perim=2*pi*sqrt(A/pi)*DL
+
+		zmix=10^(-0.518*log10(DOC/V*12)+1.006)		#fuentetaja et al. 1999
+		if(zmix>Zmax){
+			zmix=Zmax
+		}
+		
+		umix=zmix/stage
+		Vu=(6*umix-3*(1-p)*umix^2-2*p*umix^3)/(3+p)
+		Vepi=V*Vu
 
 		gwIn=gwIn0*perim/Perim0	#m3 d-1
 		gwOut=gwOut0*perim/Perim0	#m3 d-1
@@ -61,86 +117,57 @@ timeStep<-function(t,X,params){
 		floc=0.#0.005		# fraction of DOC that floculates, [day-1]; von Wachenfeldt & Tranvik 2008 via Jones et al. 2012
 		#DOCrespired=0.001#0.005 # fraction of DOC that is respired, [day-1]; Houser et al. 2001 via Hanson et al. 2004
 
-		# epilimnion vs. hypolimion ---> deal with this soon!!!!!
+		# epilimnion vs. hypolimion 
 		#zmix=10^(-0.518*log10(DOC/(V*1000)*12*1000)+1.006)	#****** NEED TO MAKE SURE THE DOC UNITS ARE RIGHT HERE...	#fuentetaja et al. 1999
-
-#		if(zmix>Zmax){
-#			zmix=Zmax
-#		}
-
-		#hypoVolume<<-A*(curMeanDepth-zmix)	# m3
-
+		phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g. 
+		chlCur=phyto/Vepi*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
+		kD=0.0213+0.0177*chlCur+0.0514*(DOC/V*12) # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
+		
 		atmCO2=400 # [ppm]
 		atmEquilCO2=1*atmCO2/1e6/kH*1000	# concentration of CO2 in water at equilibrium with atmosphere, [mol C m-3]
-	
 		
+		phytoC2P=106#70		#M:M; from Patrick
+	
+		deposition=dailyTPOCdep(floor(t),A,curForce,curForceDOY)
+		
+		d=5		#particle diameter [um]
+		settling=0.0188*(d/2)^2/zmix
+		
+		GPP=dailyGPP(day=floor(t),curForce=curForce,curForceDOY=curForceDOY,chlCur=chlCur,SRP=P,DOC=DOC,V=V,kD=kD,zmix=zmix)
+		
+		GPPexude=0.03	# Hanson et al. 2004
+		Rauto=0.8		# Hanson et al. 2004
+				
 		################################
 		#### Differential equations ####
 		################################
 
 		dV.dt=(streamQ+directPrecip+gwIn)-(STout+curEvap+gwOut)	#[m3]
 				
-		dDIC.dt=streamQ*streamDIC+directPrecip*precipDIC+gwIn*gwDIC-STout*DIC/V-gwOut*DIC/V+photoOx*A+DOCrespired*DOC+kCur*(atmEquilCO2-DIC/V)*A	#[mol C]
+		dDIC.dt=streamQ*streamDIC+directPrecip*precipDIC+gwIn*gwDIC-STout*DIC/V-gwOut*DIC/V+photoOx*A+DOCrespired*DOC+kCur/zmix*(atmEquilCO2-DIC/V)*A-GPP*Vepi+GPP*Rauto*Vepi	#[mol C]
 
-		dDOC.dt=streamQ*streamDOC+directPrecip*precipDOC+gwIn*gwDOC-STout*DOC/V-gwOut*DOC/V-photoOx*A-floc*DOC-DOCrespired*DOC	#[mol C]
+		dDOC.dt=streamQ*streamDOC+directPrecip*precipDOC+gwIn*gwDOC+GPP*Vepi*GPPexude-STout*DOC/V-gwOut*DOC/V-photoOx*A-floc*DOC-DOCrespired*DOC	#[mol C]
 
-		list(c(dV.dt,dDIC.dt,dDOC.dt))
+		dtPOC.dt=streamQ*streamPOC+deposition+floc*DOC-STout*tPOC/V-settling*tPOC	#[mol C]
+		
+		#dphyto.dt=GPP*zmix*A-Rauto*phyto-settling*phyto-STout*phyto/V-GPP*zmix*A*GPPexude
+		dphyto.dt=GPP*Vepi-GPP*Vepi*Rauto-settling*phyto-STout*phyto/V-GPP*Vepi*GPPexude
+
+		
+		#dP.dt=streamQ*streamP+directPrecip*precipP+gwIn*gwP-STout*P/V-gwOut*P/V-GPP*zmix*A/phytoC2P+phyto*Rauto/phytoC2P*recyclingEff
+		dP.dt=streamQ*streamP+directPrecip*precipP+gwIn*gwP-STout*P/V-gwOut*P/V-GPP*Vepi*(1-Rauto)/phytoC2P
+		
+		list(c(dV.dt,dDIC.dt,dDOC.dt,dtPOC.dt,dphyto.dt,dP.dt))
 	})
 
 }
 
 
-#### OLD support functions that will be used eventually...
 
 
-#light attenuation
-lightAtten<-function(z,I0,kD){
-	Iz=I0*exp(-kD*z)
-	return(Iz)
-}
-lightAttenTS<-function(I0,kD,zmix){
-	avgI=numeric(length(I0))
-	for(i in 1:length(avgI)){
-		avgI[i]=integrate(lightAtten,0,zmix,I0=I0[i],kD=kD)$value/zmix
-	}
-	return(avgI)
-}
 
-# atmospheric deposition
-depWithDist<-function(distShore,precip,maxWind){
-	lPOC=10^(0.43+0.0034*precip+0.11*maxWind-1.05*distShore/(48+distShore))/(12*1000)	#mol C m-2 day-1
-	sPOC=10^(0.0082+0.0068*precip+0.12*maxWind-0.6*distShore/(49+distShore))/(12*1000) #mol C m-2 day-1
-	
-	tPOCdep=(lPOC+sPOC) #tPOCdep summed across lake surface	#mol C m-2 day-1
-	return(tPOCdep)
-}
 
-# daily tPOC deposition based on Preston et al.
-dailyTPOCdep<-function(day,curLakeArea,curForce,curForceDOY){
-	maxWind=max(curForce[curForceDOY==day,13])*(1/10)^0.15		# convert 10m wind to 1m for preston model tPOC deposition
 
-	tPOCdepTotal=integrate(depWithDist,0.01,sqrt(curLakeArea/pi),precip=dailyPrecip(day),maxWind=maxWind)$value/sqrt(curLakeArea/pi)*curLakeArea #tPOCdep summed across lake surface	#mol C day-1
-	return(tPOCdepTotal)
-}
-
-# dailyGPP based on hourly light, etc.
-dailyGPP<-function(day,curForce,curForceDOY,Phyto,SRP,DOC,V,zmix){
-	hourlyPAR=sw.to.par.base(curForce[curForceDOY==day,10])		# umol m2 sec; SW to PAR based on Read...
-
-	#### trying different GPP formulation
-	PPmax=15#2.2		# day-1
-	kSRP=0.55#0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kinnerrett)
-	Ik=180 		# light limitation benchmark for GPP, [umol cm-2 s-1]; Vadeboncoeur et al. 2008
-	phyto_C2Chl=50		# phytoplankton carbon to chlorophyll ratio, [gC gChl-1]; sort of made up/average of observations in paper (e.g. 
-
-	chlCur=Phyto/V*12*1000/phyto_C2Chl # current chlorophyll concentrations [mg m-3]
-	kD=0.0213+0.0177*chlCur+0.0514*DOC/V # current light attenuation coefficient [m-1]  #OR kD=-0.217+0.0537*chloro+0.186*DOC --> in M2M lightProfile Calcs r script
-				
-	avgI=lightAttenTS(hourlyPAR,kD,zmix)		# hourly average light climate in mixed layer [umol cm-2 s-1]
-	GPP=sum(chlCur*PPmax*tanh(avgI/Ik)*((SRP/V)/((SRP/V)+kSRP)))/(12*1000) # mol C m-3 day-1
-	
-	return(GPP)
-}
 
 
 
@@ -275,7 +302,7 @@ kSRP=0.5/1000	# mol P m-3; Halmann and Stiller 1974 L&O 19(5): 774-783 (Lake Kin
 		dBuried.dt=sedRate*tPOC*(1-alloSEDrespired)+sedRate*Phyto*(1-autoSEDrespired)	#[mol C]
 	
 		
-		list(c(dDOC.dt,dDIC.dt,dtPOC.dt,dPhyto.dt,dSRP.dt,dBuried.dt),c(zmix=zmix,V=V))
+		list(c(dV.dt,dDOC.dt,dDIC.dt,dtPOC.dt,dPhyto.dt,dSRP.dt,dBuried.dt))
 		#list(c(DOC+dDOC.dt,DIC+dDIC.dt,tPOC+dtPOC.dt,Phyto+dPhyto.dt,SRP+dSRP.dt,Buried+dBuried.dt),c(zmix=zmix,V=V))
 	})
 

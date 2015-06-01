@@ -13,10 +13,10 @@ timeStep<-function(t,X,params){
 		#########################
 		V=X[1]
 
-		u=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=Vmax,Vu=V)$root,4)
+		u=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=Vmax,Vu=(Vmax-V))$root,4)
 		
-		stage=u*Zmax
-		A=Amax*(p*u^2+(1-p)*u)
+		stage=Zmax-u*Zmax
+		A=Amax*(1-(p*u^2+(1-p)*u))
 		
 		perim=2*pi*sqrt(A/pi)*DL
 

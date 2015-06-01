@@ -35,7 +35,7 @@ setwd("/Volumes/JonesExternal/External/activeStuff/NHLD_Cmodel/NHLD_lakeCmodel")
 recharge=read.table("meanRechargeTS.txt",header=FALSE,sep="\t",stringsAsFactors=FALSE)
 
 # starting year/month/day, ending year/mnth/day, & set up force/flux
-startYear=2000
+startYear=1950
 startMonth=1
 startDay=1
 
@@ -110,17 +110,17 @@ DL=Perim0/(2*sqrt(pi*A0))
 #		have to scale both zmax and zbar to maintain DR
 #		after this, I think we can solve for Amax and Vmax and use these to scale Au and Vu appropriately...
 #		5-12-15:  in trying UNDERC lakes Tenderfoot "overflows"  can bump this multiplier from 1.25 to 2.5 -> this changes stage dynamics and model behavior a bit because stage and Area at a given Volume are slightly different
-zbar1=zbar0*2.5#1.25
-zmax1=zmax0*2.5#1.25
+zbar1=zbar0*1.5
+zmax1=zmax0*1.5
 	
-uScale=zmax0/zmax1
+uScale=(zmax1-zmax0)/zmax1
 					
-A1=A0/(p*uScale^2+(1-p)*uScale)
-V1=V0/((6*uScale-3*(1-p)*uScale^2-2*p*uScale^3)/(3+p))
+A1=A0/(1-(p*uScale^2+(1-p)*uScale))
+V1=V0/(1-((6*uScale-3*(1-p)*uScale^2-2*p*uScale^3)/(3+p)))
 					
 curShedArea=UNDERCsheds$Area_m2[UNDERCsheds$Permanent_==curLakeID]	#m2
 
-u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=V0)$root,4)
+u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=(V1-V0))$root,4)
 	
 curgwCoefIn=gwIn_fRecharge[gwIn_fRecharge[,1]==curLakeID,]
 curgwCoefOut=gwOut_fRecharge[gwOut_fRecharge[,1]==curLakeID,]
@@ -137,7 +137,7 @@ gwOut0[gwOut0<0]=0
 daily_gwIn0=approxfun(curFluxDOY,gwIn0,method="constant")
 daily_gwOut0=approxfun(curFluxDOY,gwOut0,method="constant")
 		
-stage0=u0*zmax1
+stage0=zmax1-u0*zmax1
 alpha=0.99
 stageOut=alpha*stage0
 
@@ -151,9 +151,9 @@ out<-ode(y=initialX,times=times,func=timeStep,parms=params,method="rk4")
 out=cbind(out,NA,NA,NA)
 for(j in 1:nrow(out)){
 	if(!is.na(out[j,2])){
-		uj=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=out[j,2])$root,4)
-		out[j,3]=A1*(p*uj^2+(1-p)*uj)
-		out[j,4]=zmax1*uj
+		uj=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=(V1-out[j,2]))$root,4)
+		out[j,3]=A1*(1-(p*uj^2+(1-p)*uj))
+		out[j,4]=zmax1-zmax1*uj
 		out[j,5]=2*pi*sqrt(out[j,3]/pi)*DL
 	}
 }

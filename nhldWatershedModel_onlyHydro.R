@@ -117,17 +117,17 @@ DL=Perim0/(2*sqrt(pi*A0))
 #		have to scale both zmax and zbar to maintain DR
 #		after this, I think we can solve for Amax and Vmax and use these to scale Au and Vu appropriately...
 #		5-12-15:  in trying UNDERC lakes Tenderfoot "overflows"  can bump this multiplier from 1.25 to 2.5 -> this changes stage dynamics and model behavior a bit because stage and Area at a given Volume are slightly different
-zbar1=zbar0*2.5#1.25
-zmax1=zmax0*2.5#1.25
+zbar1=zbar0*1.5
+zmax1=zmax0*1.5
 	
-uScale=zmax0/zmax1
+uScale=(zmax1-zmax0)/zmax1
 					
-A1=A0/(p*uScale^2+(1-p)*uScale)
-V1=V0/((6*uScale-3*(1-p)*uScale^2-2*p*uScale^3)/(3+p))
+A1=A0/(1-(p*uScale^2+(1-p)*uScale))
+V1=V0/(1-((6*uScale-3*(1-p)*uScale^2-2*p*uScale^3)/(3+p)))
 					
 curShedArea=UNDERCsheds$Area_m2[i]	#m2
 
-u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=V0)$root,4)
+u0=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=(V1-V0))$root,4)
 	
 curGFLOW=GFLOWoutput[GFLOWoutput$Permanent_==curLakeID,]
 curGFLOW=curGFLOW[!is.na(curGFLOW$Permanent_),]
@@ -141,8 +141,8 @@ gwOut0=-sum((1-GFLOWin)*curGFLOW$Linesink_PerLengthDischarge_Output*GFLOWpropPer
 #gwIn0=gwIn0/60
 #gwOut0=gwOut0/60
 		
-stage0=u0*zmax1
-alpha=0.8
+stage0=zmax1-u0*zmax1
+alpha=0.99
 stageOut=alpha*stage0
 
 params=c(Vmax=V1,Zmax=zmax1,Amax=A1,curShedArea=curShedArea,stageOut=stageOut,Perim0=Perim0,gwIn0=gwIn0,gwOut0=gwOut0,p=p,DL=DL)
@@ -155,9 +155,9 @@ out<-ode(y=initialX,times=times,func=timeStep,parms=params)
 out=cbind(out,NA,NA,NA)
 for(j in 1:nrow(out)){
 	if(!is.na(out[j,2])){
-		uj=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=out[j,2])$root,4)
-		out[j,3]=A1*(p*uj^2+(1-p)*uj)
-		out[j,4]=zmax1*uj
+		uj=round(uniroot(f=findU,lower=0,upper=1,p=p,Vmax=V1,Vu=(V1-out[j,2]))$root,4)
+		out[j,3]=A1*(1-(p*uj^2+(1-p)*uj))
+		out[j,4]=zmax1-zmax1*uj
 		out[j,5]=2*pi*sqrt(out[j,3]/pi)*DL
 	}
 }
